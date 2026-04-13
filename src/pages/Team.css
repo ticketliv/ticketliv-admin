@@ -1,0 +1,85 @@
+.team-container {
+  padding: 40px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.team-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 32px;
+}
+
+.custom-table th {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 11px;
+}
+
+.custom-table td {
+  vertical-align: middle;
+}
+
+.custom-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.permissions-section {
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.row-actions {
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+
+.custom-table tbody tr:hover .row-actions {
+  opacity: 1;
+}
+
+.delete-icon:hover {
+  background: rgba(244, 63, 94, 0.1) !important;
+}
+
+@media (max-width: 768px) {
+  .team-container {
+    padding: 20px;
+  }
+  
+  .team-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  
+  .team-header button {
+    width: 100%;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  padding: 32px;
+  border-radius: 24px;
+  position: relative;
+  max-height: 90vh;
+  overflow-y: auto;
+}

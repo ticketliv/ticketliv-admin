@@ -1,0 +1,12 @@
+[
+    RuntimeEnabled=DictionaryAPI,
+    Exposed=Window
+] interface Dictionary {
+    constructor();
+    attribute Element? inputElement;
+    void insertText(DOMString text);
+    void deleteBackward();
+    void deleteForward();
+    void moveCursorForward();
+    void moveCursorBackward();
+};

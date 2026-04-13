@@ -1,0 +1,243 @@
+:root {
+  --primary: #6366f1;
+  --bg-dark: #0f172a;
+  --card-dark: #1e293b;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --border-color: #334155;
+  --status-available: #10b981;
+  --status-sold: #ef4444;
+  --status-locked: #f59e0b;
+  --status-selected: #6366f1;
+}
+
+.seat-selection-widget {
+  background: var(--card-dark);
+  border-radius: 1.5rem;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  border: 1px solid var(--border-color);
+  max-width: 800px;
+  max-height: 800px;
+  margin: auto;
+}
+
+.selection-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.selection-header h3 {
+  font-weight: 800;
+  margin-bottom: 0.25rem;
+  font-size: 1.5rem;
+}
+
+.bread-crumbs {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.bread-crumbs span {
+  color: var(--primary);
+  font-weight: 800;
+}
+
+.stats-pill {
+  background: var(--primary);
+  color: #fff;
+  padding: 0.4rem 1rem;
+  border-radius: 2rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.zoom-controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.zoom-controls button {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-dark);
+  color: var(--text-main);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  transition: 0.2s;
+}
+
+.zoom-controls button:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.canvas-wrapper {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.25rem;
+  background: #020617;
+  min-height: 500px;
+  padding: 1rem;
+  border: 1px solid var(--border-color);
+}
+
+.lod-indicator {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: rgba(0,0,0,0.6);
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: var(--primary);
+  z-index: 10;
+}
+
+.block-group {
+  cursor: pointer;
+}
+
+.block-shape {
+  fill: rgba(255,255,255,0.03);
+  stroke: var(--border-color);
+  stroke-width: 1.5;
+  transition: 0.3s;
+}
+
+.block-group:hover .block-shape {
+  fill: rgba(99, 102, 241, 0.1);
+  stroke: var(--primary);
+}
+
+.block-label {
+  font-size: 24px;
+  font-weight: 900;
+  fill: var(--text-muted);
+  pointer-events: none;
+  opacity: 0.4;
+}
+
+.seating-canvas {
+  width: 100%;
+  height: auto;
+}
+
+.seat-node {
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.seat-node:hover {
+  opacity: 0.8;
+}
+
+.seat-node.sold {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.seat-node.locked {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.seat-circle {
+  stroke-width: 2;
+  transition: fill 0.2s, stroke 0.2s;
+}
+
+.seat-node.available .seat-circle {
+  fill: transparent;
+  stroke: var(--status-available);
+}
+
+.seat-node.sold .seat-circle {
+  fill: var(--status-sold);
+  stroke: var(--status-sold);
+  opacity: 0.5;
+}
+
+.seat-node.locked .seat-circle {
+  fill: var(--status-locked);
+  stroke: var(--status-locked);
+}
+
+.seat-node.selected .seat-circle {
+  fill: var(--status-selected);
+  stroke: var(--status-selected);
+  filter: drop-shadow(0 0 5px var(--status-selected));
+}
+
+.seat-label {
+  pointer-events: none;
+  font-size: 8px;
+  font-weight: 800;
+  fill: currentColor;
+  opacity: 0;
+}
+
+.seat-node.selected .seat-label {
+  opacity: 1;
+  fill: #fff;
+}
+
+.selection-legend {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.available { border: 1.5px solid var(--status-available); }
+.sold { background: var(--status-sold); }
+.locked { background: var(--status-locked); }
+.selected { background: var(--status-selected); }
+
+.selection-footer {
+  text-align: center;
+  margin-top: auto;
+}
+
+.btn-confirm {
+  width: 100%;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 800;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn-confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
