@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { UploadCloud, Image as ImageIcon, Video, Link as LinkIcon, Save, CheckCircle, Eye, MousePointerClick, Trash2 } from 'lucide-react';
 import api from '../services/api';
+import { CONFIG } from '../config/constants';
 import './Ads.css';
 
 interface AdData {
@@ -319,9 +320,9 @@ const Ads = () => {
                   <td>
                     <div className="ad-info">
                       {ad.type === 'video' && ad.video_url ? (
-                        <video src={ad.video_url} className="ad-thumb" muted />
+                        <video src={ad.video_url.startsWith('http') ? ad.video_url : `${CONFIG.ASSET_URL.replace('/uploads', '')}${ad.video_url}`} className="ad-thumb" muted />
                       ) : (
-                        <img src={ad.media_url || ''} className="ad-thumb" alt="Thumbnail" />
+                        <img src={ad.media_url?.startsWith('http') ? ad.media_url : `${CONFIG.ASSET_URL.replace('/uploads', '')}${ad.media_url}`} className="ad-thumb" alt="Thumbnail" />
                       )}
                       <div>
                         <div className="ad-title">{ad.title}</div>
