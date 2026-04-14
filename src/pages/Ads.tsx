@@ -19,6 +19,15 @@ const Ads = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [adsList, setAdsList] = useState<any[]>([]);
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    id: string;
+    title: string;
+  }>({
+    isOpen: false,
+    id: '',
+    title: ''
+  });
 
   const [fileObject, setFileObject] = useState<File | null>(null);
 
@@ -114,14 +123,24 @@ const Ads = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this ad campaign?')) return;
+  const handleDelete = (id: string, title: string) => {
+    setConfirmModal({
+      isOpen: true,
+      id,
+      title
+    });
+  };
+
+  const confirmDelete = async () => {
+    if (!confirmModal.id) return;
+    const id = confirmModal.id;
     
     // Save previous state for rollback
     const previousAds = [...adsList];
     
     // Optimistic Update: Remove from UI immediately
     setAdsList(prev => prev.filter(ad => ad.id !== id));
+    setConfirmModal({ ...confirmModal, isOpen: false });
     
     try {
       console.log(`[Ads] Attempting to delete ad: ${id}`);
@@ -326,7 +345,7 @@ const Ads = () => {
                     </div>
                   </td>
                   <td>
-                    <button className="btn-delete-ad" onClick={() => handleDelete(ad.id)} title="Delete Campaign">
+                    <button className="btn-delete-ad" onClick={() => handleDelete(ad.id, ad.title)} title="Delete Campaign">
                       <Trash2 size={16} />
                     </button>
                   </td>
@@ -336,6 +355,23 @@ const Ads = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Confirmation Modal */}
+      {confirmModal.isOpen && (
+        <div className="confirm-modal-overlay">
+          <div className="confirm-modal glass-panel">
+            <div className="confirm-modal-icon">
+              <Trash2 size={32} />
+            </div>
+            <h3>Delete Campaign?</h3>
+            <p>Are you sure you want to delete "<strong>{confirmModal.title}</strong>"? This will immediately remove it from the mobile app home screen.</p>
+            <div className="confirm-modal-actions">
+              <button className="btn-cancel" onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })}>Cancel</button>
+              <button className="btn-confirm-delete" onClick={confirmDelete}>Delete Campaign</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

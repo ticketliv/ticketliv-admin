@@ -34,8 +34,10 @@ const Events = () => {
     setErrorStatus(null);
     try {
       await refreshEvents();
-    } catch (err: unknown) {
-      setErrorStatus(err instanceof Error ? err.message : "Failed to sync with server. Please check your connection.");
+    } catch (err: any) {
+      console.error('[Events] Sync error:', err);
+      const msg = typeof err === 'string' ? err : (err?.message || "Failed to sync with server. Please check your connection.");
+      setErrorStatus(msg);
     } finally {
       setTimeout(() => setIsRefreshing(false), 500);
     }
