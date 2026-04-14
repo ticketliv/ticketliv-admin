@@ -352,7 +352,6 @@ const AdminLayout = () => {
               </div>
             </div>
           </header>
-        )}
 
         {/* Dynamic Nested Content */}
         <div ref={scrollContainerRef} className="scrollable-container" style={{ flex: 1, overflowY: 'auto' }}>
