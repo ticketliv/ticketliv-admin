@@ -466,16 +466,23 @@
 .confirm-modal-overlay {
   position: fixed;
   top: 0;
-  left: 0;
+  left: 280px; /* Start from after the sidebar for better centering */
   right: 0;
   bottom: 0;
-  background: rgba(0,0,0,0.8);
-  backdrop-filter: blur(8px);
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
   padding: 20px;
+  animation: fadeIn 0.3s ease;
+}
+
+@media (max-width: 768px) {
+  .confirm-modal-overlay {
+    left: 0; /* Full screen on mobile */
+  }
 }
 
 .confirm-modal {
