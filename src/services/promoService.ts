@@ -3,34 +3,34 @@ import type { Coupon, Discount } from '../context/AppContext';
 
 export const PromoService = {
   getCoupons: async () => {
-    return api.get('/promos/coupons');
+    return api.get('/marketing/coupons');
   },
 
   createCoupon: async (couponData: Partial<Coupon>) => {
-    return api.post('/promos/coupons', couponData);
+    return api.post('/marketing/coupons', couponData);
   },
 
   updateCoupon: async (id: string, couponData: Partial<Coupon>) => {
-    return api.put(`/promos/coupons/${id}`, couponData);
+    return api.put(`/marketing/coupons/${id}`, couponData);
   },
 
   deleteCoupon: async (id: string) => {
-    return api.delete(`/promos/coupons/${id}`);
+    return api.delete(`/marketing/coupons/${id}`);
   },
 
   getDiscounts: async () => {
-    return api.get('/promos/discounts');
+    return api.get('/marketing/discounts');
   },
 
   createDiscount: async (discountData: Partial<Discount>) => {
-    return api.post('/promos/discounts', discountData);
+    return api.post('/marketing/discounts', discountData);
   },
 
   updateDiscount: async (id: string, discountData: Partial<Discount>) => {
-    return api.put(`/promos/discounts/${id}`, discountData);
+    return api.put(`/marketing/discounts/${id}`, discountData);
   },
 
   deleteDiscount: async (id: string) => {
-    return api.delete(`/promos/discounts/${id}`);
+    return api.delete(`/marketing/discounts/${id}`);
   }
 };

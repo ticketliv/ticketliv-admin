@@ -6,25 +6,6 @@ import { ALL_ADMIN_ROUTES, DEFAULT_ROLE_PERMISSIONS, type PermissionRoute, useAp
 
 // Type definitions based on our schema
 type UserRole = 'Super Admin' | 'Admin' | 'Manager' | 'Event Organizer' | 'Scanner User';
-type PublishingStatus = 'Draft' | 'Pending Approval' | 'Approved' | 'Rejected' | 'Published' | 'Archived';
-
-interface EventPending {
-  id: string;
-  title: string;
-  start_date: string;
-  status: string;
-  publishing_status: PublishingStatus;
-  created_at: string;
-  organizer_name: string;
-}
-
-interface ScannerAssignment {
-  id: string;
-  name: string;
-  email: string;
-  is_active: boolean;
-  assignments: { assignment_id: string; event_id: string; title: string }[];
-}
 
 interface AuditLog {
   id: string;
@@ -40,9 +21,19 @@ interface AuditLog {
 const AdminControl = () => {
   const [activeTab, setActiveTab] = useState<'users' | 'publishing' | 'scanners' | 'audit'>('publishing');
 
-  const { adminUsers: users, addAdminUser, updateAdminUser, deleteAdminUser } = useApp();
-  const [events, setEvents] = useState<EventPending[]>([]);
-  const [scanners, setScanners] = useState<ScannerAssignment[]>([]);
+  const { 
+    adminUsers: users, 
+    addAdminUser, 
+    updateAdminUser, 
+    deleteAdminUser,
+    pendingEvents: events,
+    approveAdminEvent,
+    rejectAdminEvent,
+    scanners,
+    assignAdminScanner,
+    unassignAdminScanner
+  } = useApp();
+
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -87,20 +78,22 @@ const AdminControl = () => {
     }
   };
 
-  const handleApproveEvent = (id: string) => {
-    setEvents(prev => prev.filter(e => e.id !== id));
-    toast.success('Event approved and successfully published!');
-    setLogs(prev => [{
-      id: `log_${Date.now()}`, user_name: 'Current User', action: 'APPROVE_EVENT', entity_type: 'Event', target_id: id, created_at: new Date().toISOString()
-    }, ...prev]);
+  const handleApproveEvent = async (id: string) => {
+    try {
+      await approveAdminEvent(id);
+      toast.success('Event approved and successfully published!');
+    } catch (e) {
+      toast.error('Failed to approve event');
+    }
   };
-
-  const handleRejectEvent = (id: string) => {
-    setEvents(prev => prev.filter(e => e.id !== id));
-    toast.error('Event rejected back to organizer.');
-    setLogs(prev => [{
-      id: `log_${Date.now()}`, user_name: 'Current User', action: 'REJECT_EVENT', entity_type: 'Event', target_id: id, created_at: new Date().toISOString()
-    }, ...prev]);
+  
+  const handleRejectEvent = async (id: string) => {
+    try {
+      await rejectAdminEvent(id);
+      toast.error('Event rejected back to organizer.');
+    } catch (e) {
+      toast.error('Failed to reject event');
+    }
   };
 
   const handleDeleteUser = async (id: string) => {
@@ -112,14 +105,13 @@ const AdminControl = () => {
     }
   };
 
-  const handleUnassignScanner = (assignmentId: string, scannerId: string) => {
-    setScanners(prev => prev.map(s => {
-      if (s.id === scannerId) {
-        return { ...s, assignments: s.assignments.filter(a => a.assignment_id !== assignmentId) };
-      }
-      return s;
-    }));
-    toast.success('Scanner assignment removed');
+  const handleUnassignScanner = async (assignmentId: string) => {
+    try {
+      await unassignAdminScanner(assignmentId);
+      toast.success('Scanner assignment removed');
+    } catch (e) {
+      toast.error('Failed to remove assignment');
+    }
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -167,44 +159,25 @@ const AdminControl = () => {
     }
   };
 
-  const handleAssignScanner = (e: React.FormEvent) => {
+  const handleAssignScanner = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newAssignment.scannerId || !newAssignment.eventTitle) {
       toast.error('Please select both scanner and event');
       return;
     }
-
-    const scannerUser = users.find(u => u.id === newAssignment.scannerId);
-    if (!scannerUser) return;
-
-    setScanners(prev => {
-      const existingScanner = prev.find(s => s.id === newAssignment.scannerId);
-      const newAsgn = {
-        assignment_id: `asn_${Date.now()}`,
-        event_id: newAssignment.eventId || `evt_${Math.floor(Math.random() * 1000)}`,
-        title: newAssignment.eventTitle
-      };
-
-      if (existingScanner) {
-        return prev.map(s => s.id === existingScanner.id ? { ...s, assignments: [...s.assignments, newAsgn] } : s);
-      } else {
-        return [...prev, {
-          id: scannerUser.id,
-          name: scannerUser.name,
-          email: scannerUser.email,
-          is_active: scannerUser.status === 'Active',
-          assignments: [newAsgn]
-        }];
-      }
-    });
-
-    setLogs([{
-      id: `log_${Date.now()}`, user_name: 'Current User', action: 'ASSIGN_SCANNER', entity_type: 'Scanner_Assignment', target_id: newAssignment.scannerId, created_at: new Date().toISOString()
-    }, ...logs]);
-
-    setIsAssignScannerModalOpen(false);
-    setNewAssignment({ scannerId: '', eventId: '', eventTitle: '' });
-    toast.success('Scanner successfully assigned to event!');
+    
+    try {
+      // Find event ID if typing title? For now let's assume eventTitle is ID or title
+      // In a real system we'd have a dropdown for events too.
+      // Let's assume the user enters the event ID or we find it.
+      await assignAdminScanner(newAssignment.scannerId, newAssignment.eventId || newAssignment.eventTitle);
+      
+      setIsAssignScannerModalOpen(false);
+      setNewAssignment({ scannerId: '', eventId: '', eventTitle: '' });
+      toast.success('Scanner successfully assigned to event!');
+    } catch (error) {
+       toast.error('Failed to assign scanner');
+    }
   };
 
   // ----------------------------------------
@@ -406,11 +379,11 @@ const AdminControl = () => {
                       <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>No active assignments.</p>
                     ) : (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                        {scanner.assignments.map(asgn => (
+                        {scanner.assignments.map((asgn: any) => (
                           <div key={asgn.assignment_id} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(255,255,255,0.05)', padding: '8px 16px', borderRadius: '30px', border: '1px solid rgba(255,255,255,0.05)' }}>
                             <span style={{ fontSize: '13px', color: 'white' }}>{asgn.title}</span>
                             <button
-                              onClick={() => handleUnassignScanner(asgn.assignment_id, scanner.id)}
+                              onClick={() => handleUnassignScanner(asgn.assignment_id)}
                               style={{ background: 'none', border: 'none', color: '#f43f5e', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }}
                             ><XCircle size={14} /></button>
                           </div>

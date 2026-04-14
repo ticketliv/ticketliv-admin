@@ -18,6 +18,10 @@ export const AuthService = {
     return api.put(`/auth/users/${id}/permissions`, { permissions, role });
   },
 
+  updateUser: async (id: string, userData: Partial<AdminUser>) => {
+    return api.put(`/auth/users/${id}`, userData);
+  },
+
   deleteUser: async (id: string) => {
     return api.delete(`/auth/users/${id}`);
   }

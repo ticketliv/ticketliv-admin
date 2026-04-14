@@ -593,7 +593,7 @@ const CreateEvent = () => {
         convenienceFeeType
       },
       gates: gates,
-      status: status,
+      status: finalStatus,
       sales: 0,
       revenue: 0,
       revenueCurrency: 'INR'

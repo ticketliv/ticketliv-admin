@@ -116,12 +116,22 @@ const Ads = () => {
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this ad campaign?')) return;
+    
+    // Save previous state for rollback
+    const previousAds = [...adsList];
+    
+    // Optimistic Update: Remove from UI immediately
+    setAdsList(prev => prev.filter(ad => ad.id !== id));
+    
     try {
+      console.log(`[Ads] Attempting to delete ad: ${id}`);
       await api.delete(`/ads/${id}`);
-      fetchAds();
+      console.log(`[Ads] Successfully deleted ad: ${id}`);
     } catch (err) {
       console.error('Failed to delete ad', err);
-      alert('Failed to delete ad');
+      // Rollback on failure
+      setAdsList(previousAds);
+      alert('Failed to delete ad. Please try again.');
     }
   };
 

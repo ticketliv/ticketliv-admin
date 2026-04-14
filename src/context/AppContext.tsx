@@ -230,13 +230,19 @@ interface AppContextType {
   addDiscount: (discount: Discount) => void;
   updateDiscount: (id: string, updatedData: Partial<Discount>) => void;
   deleteDiscount: (id: string) => void;
+  removeEventFromScanner: (userId: string, eventId: string) => void;
+  pendingEvents: any[];
+  approveAdminEvent: (id: string) => Promise<void>;
+  rejectAdminEvent: (id: string) => Promise<void>;
+  scanners: any[];
+  assignAdminScanner: (scannerId: string, eventId: string) => Promise<void>;
+  unassignAdminScanner: (assignmentId: string) => Promise<void>;
+  dashboardStats: any; // metrics, revenueTrend, scanTrend, venueRevenue, activities, scans
+  refreshDashboardStats: () => Promise<void>;
   refreshEvents: () => Promise<void>;
   auditLogs: AuditLog[];
   addAuditLog: (action: string, type: AuditLog['type'], metadata?: any) => void;
   assignEventToScanner: (userId: string, eventId: string) => void;
-  removeEventFromScanner: (userId: string, eventId: string) => void;
-  dashboardStats: any; // metrics, revenueTrend, scanTrend, venueRevenue, activities, scans
-  refreshDashboardStats: () => Promise<void>;
   loginUser: (user: AdminUser, token: string) => void;
 }
 
@@ -297,9 +303,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [events, setEvents] = useState<AppEvent[]>(initialEvents);
   const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
-  const [attendees] = useState<Attendee[]>(initialAttendees);
+  const [attendees, setAttendees] = useState<Attendee[]>(initialAttendees);
   
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>(initialAdminUsers);
+  const [pendingEvents, setPendingEvents] = useState<any[]>([]);
+  const [scanners, setScanners] = useState<any[]>([]);
   
   const [currentAdminUser, setCurrentAdminUser] = useState<AdminUser | null>(() => {
     const stored = localStorage.getItem(STORAGE_KEYS.USER_DATA);
@@ -407,6 +415,27 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             setDashboardStats(statsData);
           }
 
+          // Fetch Attendees
+          const attendeeRes = await AdminService.getAttendees();
+          if (attendeeRes) {
+             const attData = (attendeeRes as any).data || attendeeRes;
+             if (Array.isArray(attData)) setAttendees(attData);
+          }
+
+          // Fetch Pending Events
+          const pendingRes = await AdminService.getPendingEvents();
+          if (pendingRes) {
+             const pendingData = (pendingRes as any).data || pendingRes;
+             if (Array.isArray(pendingData)) setPendingEvents(pendingData);
+          }
+
+          // Fetch Scanners
+          const scannersRes = await AdminService.getScanners();
+          if (scannersRes) {
+             const scannerData = (scannersRes as any).data || scannersRes;
+             if (Array.isArray(scannerData)) setScanners(scannerData);
+          }
+
        } catch (err) {
          console.error('System Initialization Error:', err);
       }
@@ -421,11 +450,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     if (storedUser) {
       try {
         const user = JSON.parse(storedUser) as AdminUser;
-        if (user.role && DEFAULT_ROLE_PERMISSIONS[user.role]) {
-          user.permissions = DEFAULT_ROLE_PERMISSIONS[user.role];
+        const roleKey = Object.keys(DEFAULT_ROLE_PERMISSIONS).find(
+          key => key.toLowerCase().replace(/\s/g, '') === user.role?.toLowerCase().replace(/\s/g, '')
+        );
+        if (roleKey && DEFAULT_ROLE_PERMISSIONS[roleKey]) {
+          user.permissions = DEFAULT_ROLE_PERMISSIONS[roleKey];
           localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
         }
-        setCurrentAdminUser(user);
+        setTimeout(() => setCurrentAdminUser(user), 0);
       } catch (e) {
         console.error('Auth session corrupted, clearing...');
         localStorage.removeItem(STORAGE_KEYS.USER_DATA);
@@ -590,13 +622,25 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const updateAdminUser = (id: string, updatedData: Partial<AdminUser>) => {
-    // Using partial mock here until full profile update backend endpoint exists
-    setAdminUsers(prev => prev.map(user => 
-      user.id === id ? { ...user, ...updatedData } : user
-    ));
-    if (currentAdminUser?.id === id) {
-       setCurrentAdminUser((prev) => prev ? ({ ...prev, ...updatedData }) : null);
+  const updateAdminUser = async (id: string, updatedData: Partial<AdminUser>) => {
+    try {
+      const res = await AuthService.updateUser(id, updatedData) as unknown as ApiResponse<AdminUser>;
+      
+      if (res?.data) {
+        setAdminUsers(prev => prev.map(user => 
+          user.id === id ? res.data : user
+        ));
+        if (currentAdminUser?.id === id) {
+           setCurrentAdminUser(res.data);
+           localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(res.data));
+        }
+      }
+    } catch (err) {
+      console.error('Failed to update user profile:', err);
+      // Fallback update current local state if API fails
+      setAdminUsers(prev => prev.map(user => 
+        user.id === id ? { ...user, ...updatedData } : user
+      ));
     }
   };
 
@@ -620,11 +664,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const loginUser = (user: AdminUser, token: string) => {
+    const roleKey = Object.keys(DEFAULT_ROLE_PERMISSIONS).find(
+      key => key.toLowerCase().replace(/\s/g, '') === user.role?.toLowerCase().replace(/\s/g, '')
+    );
+    
+    if (roleKey && DEFAULT_ROLE_PERMISSIONS[roleKey]) {
+      user.permissions = DEFAULT_ROLE_PERMISSIONS[roleKey];
+    }
+    
     localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
     localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
     setCurrentAdminUser(user);
+    addAuditLog('User logged in', 'Auth', { email: user.email });
+    
     setAdminUsers(prev => {
-      // Add if not exists to avoid duplicates
       if (!prev.find(u => u.id === user.id)) {
         return [user, ...prev];
       }
@@ -717,6 +770,31 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }));
     addAuditLog(`Removed event ${eventId} from scanner ${userId}`, 'Access', { userId, eventId });
   };
+  
+  const approveAdminEvent = async (id: string) => {
+    await AdminService.approveEvent(id);
+    setPendingEvents(prev => prev.filter(e => e.id !== id));
+    refreshEvents();
+  };
+
+  const rejectAdminEvent = async (id: string) => {
+    await AdminService.rejectEvent(id);
+    setPendingEvents(prev => prev.filter(e => e.id !== id));
+    refreshEvents();
+  };
+
+  const assignAdminScanner = async (scannerId: string, eventId: string) => {
+    await AdminService.assignScanner({ scannerId, eventId });
+    const res = await AdminService.getScanners();
+    if (res) setScanners((res as any).data || res);
+  };
+
+  const unassignAdminScanner = async (assignmentId: string) => {
+    await AdminService.unassignScanner(assignmentId);
+    const res = await AdminService.getScanners();
+    if (res) setScanners((res as any).data || res);
+  };
+
 
   return (
     <AppContext.Provider value={{
@@ -747,6 +825,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       updateDiscount,
       deleteDiscount,
       refreshEvents,
+      pendingEvents,
+      approveAdminEvent,
+      rejectAdminEvent,
+      scanners,
+      assignAdminScanner,
+      unassignAdminScanner,
       auditLogs,
       addAuditLog,
       assignEventToScanner,

@@ -21,5 +21,33 @@ export const AdminService = {
 
   getTransactions: async () => {
     return api.get('/admin/transactions');
+  },
+
+  getAttendees: async () => {
+    return api.get('/admin/attendees');
+  },
+
+  getPendingEvents: async () => {
+    return api.get('/admin/events/pending');
+  },
+
+  approveEvent: async (id: string) => {
+    return api.post(`/admin/events/${id}/approve`);
+  },
+
+  rejectEvent: async (id: string) => {
+    return api.post(`/admin/events/${id}/reject`);
+  },
+
+  getScanners: async () => {
+    return api.get('/admin/scanners');
+  },
+
+  assignScanner: async (data: { scannerId: string, eventId: string }) => {
+    return api.post('/admin/scanners/assign', data);
+  },
+
+  unassignScanner: async (assignmentId: string) => {
+    return api.delete(`/admin/scanners/assign/${assignmentId}`);
   }
 };

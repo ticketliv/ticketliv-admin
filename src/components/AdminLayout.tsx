@@ -118,19 +118,22 @@ const AdminLayout = () => {
 
         <nav className="sidebar-nav">
           <ul className="nav-list">
-            {NAV_PAGES.map((page) => (
-              hasAccess(page.path) && (
+            {NAV_PAGES.map((page) => {
+              const Icon = page.icon || LayoutDashboard;
+              if (!hasAccess(page.path)) return null;
+              
+              return (
                 <li key={page.path}>
                   <NavLink
                     to={page.path}
                     className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}
                   >
-                    <page.icon size={20} className="nav-icon" />
+                    <Icon size={20} className="nav-icon" />
                     <span>{page.label}</span>
                   </NavLink>
                 </li>
-              )
-            ))}
+              );
+            })}
           </ul>
         </nav>
 
