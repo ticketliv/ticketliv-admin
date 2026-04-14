@@ -139,7 +139,7 @@ const Ads = () => {
     const previousAds = [...adsList];
     
     // Optimistic Update: Remove from UI immediately
-    setAdsList(prev => prev.filter(ad => ad.id !== id));
+    setAdsList(prev => prev.filter(ad => String(ad.id) !== String(id)));
     setConfirmModal({ ...confirmModal, isOpen: false });
     
     try {
