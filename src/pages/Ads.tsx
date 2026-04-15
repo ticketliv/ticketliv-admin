@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { UploadCloud, Image as ImageIcon, Video, Link as LinkIcon, Save, CheckCircle, Eye, MousePointerClick, Trash2 } from 'lucide-react';
 import api from '../services/api';
-import { CONFIG } from '../config/constants';
 import { getMediaUrl } from '../utils/imageUtils';
 import './Ads.css';
 
@@ -33,11 +32,7 @@ const Ads = () => {
 
   const [fileObject, setFileObject] = useState<File | null>(null);
 
-  useEffect(() => {
-    fetchAds();
-  }, []);
-
-  const fetchAds = async () => {
+  const fetchAds = useCallback(async () => {
     try {
       const res = await api.get('/ads') as any;
       if (res.success) {
@@ -46,12 +41,19 @@ const Ads = () => {
     } catch (err) {
       console.error('Failed to fetch ads', err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchAds();
+  }, [fetchAds]);
 
   // Simulate picking a file locally for preview
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (adData.fileUrl && adData.fileUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(adData.fileUrl);
+      }
       setFileObject(file);
       const url = URL.createObjectURL(file);
       setAdData({ ...adData, fileUrl: url });
@@ -72,6 +74,9 @@ const Ads = () => {
     setIsHovering(false);
     const file = e.dataTransfer.files?.[0];
     if (file) {
+      if (adData.fileUrl && adData.fileUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(adData.fileUrl);
+      }
       setFileObject(file);
       const url = URL.createObjectURL(file);
       setAdData({ ...adData, fileUrl: url });
@@ -182,13 +187,23 @@ const Ads = () => {
             <div className="type-selector">
               <button 
                 className={`type-btn ${adData.type === 'image' ? 'active' : ''}`}
-                onClick={() => setAdData({ ...adData, type: 'image', fileUrl: null })}
+                onClick={() => {
+                  if (adData.fileUrl && adData.fileUrl.startsWith('blob:')) {
+                    URL.revokeObjectURL(adData.fileUrl);
+                  }
+                  setAdData({ ...adData, type: 'image', fileUrl: null });
+                }}
               >
                 <ImageIcon size={20} /> Image Ad (Banner)
               </button>
               <button 
                 className={`type-btn ${adData.type === 'video' ? 'active' : ''}`}
-                onClick={() => setAdData({ ...adData, type: 'video', fileUrl: null })}
+                onClick={() => {
+                  if (adData.fileUrl && adData.fileUrl.startsWith('blob:')) {
+                    URL.revokeObjectURL(adData.fileUrl);
+                  }
+                  setAdData({ ...adData, type: 'video', fileUrl: null });
+                }}
               >
                 <Video size={20} /> Video Ad (Reel/Promo)
               </button>
