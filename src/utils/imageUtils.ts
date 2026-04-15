@@ -7,26 +7,26 @@ import { CONFIG } from '../config/constants';
 export const getMediaUrl = (path: string | null | undefined): string => {
   if (!path) return 'https://placehold.co/1200x600/181824/white?text=No+Media';
 
-  // If it's already a full URL, return it
-  if (path.startsWith('http')) {
+  // If it's already a full URL, blob, or data URL, return it
+  if (path.startsWith('http') || path.startsWith('blob:') || path.startsWith('data:')) {
     return path;
   }
 
   // Ensure path starts with a slash
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
 
-  // If path already contains /uploads, we need to be careful with CONFIG.ASSET_URL
-  // CONFIG.ASSET_URL is usually https://api.ticketliv.com/uploads
+  // Get base URL (protocol + domain)
+  // Example: if ASSET_URL is "https://api.ticketliv.com/uploads", baseUrl becomes "https://api.ticketliv.com"
+  const baseUrl = CONFIG.ASSET_URL.replace(/\/uploads\/?$/, '');
   
-  const baseUrl = CONFIG.ASSET_URL.replace(/\/uploads$/, '');
-  
-  // If the path starts with /uploads, just prepend the base URL
+  // If the path already has /uploads, append it to baseUrl
   if (cleanPath.startsWith('/uploads')) {
     return `${baseUrl}${cleanPath}`;
   }
 
-  // Otherwise, prepend the full ASSET_URL
-  return `${CONFIG.ASSET_URL}${cleanPath}`;
+  // Otherwise, ensure ASSET_URL doesn't have a double slash when joining
+  const baseAssetUrl = CONFIG.ASSET_URL.replace(/\/$/, '');
+  return `${baseAssetUrl}${cleanPath}`;
 };
 
 /**
