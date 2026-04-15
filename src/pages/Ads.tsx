@@ -120,9 +120,9 @@ const Ads = () => {
       setAdData({ type: 'image', fileUrl: null, link: '' });
       setFileObject(null);
       setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to save ad', err);
-      alert('Error saving ad banner to live app.');
+      alert(`Failed to Publish: ${err || 'Please check all fields and try again.'}`);
     } finally {
       setIsSaving(false);
     }
