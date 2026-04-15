@@ -204,6 +204,10 @@ const CreateEvent = () => {
   const [videoPreview, setVideoPreview] = useState<string | null>(null);
   const [layoutPreview, setLayoutPreview] = useState<string | null>(null);
 
+  // New Multi-Media State
+  const [mainMedia, setMainMedia] = useState<MediaItem[]>([]);
+  const [layoutMedia, setLayoutMedia] = useState<MediaItem[]>([]);
+
   // Ticket Categories State
   const [ticketCategories, setTicketCategories] = useState<TicketCategory[]>([
     { id: 1, name: 'General Admission', price: 0, capacity: 100, sales: 0, max_limit: 10 }
@@ -286,6 +290,21 @@ const CreateEvent = () => {
             setExtraInfo(prev => ({ ...prev, ...eventToEdit.extra_info }));
           }
           if (eventToEdit.layout_image) setLayoutPreview(eventToEdit.layout_image);
+          if (eventToEdit.image_url) setImagePreview(eventToEdit.image_url);
+          if (eventToEdit.video_url) setVideoPreview(eventToEdit.video_url);
+
+          if (eventToEdit.mainMedia && eventToEdit.mainMedia.length > 0) {
+            setMainMedia(eventToEdit.mainMedia);
+          } else if (eventToEdit.image_url) {
+            setMainMedia([{ url: eventToEdit.image_url, type: 'image' }]);
+          }
+
+          if (eventToEdit.layoutMedia && eventToEdit.layoutMedia.length > 0) {
+            setLayoutMedia(eventToEdit.layoutMedia);
+          } else if (eventToEdit.layout_image) {
+            setLayoutMedia([{ url: eventToEdit.layout_image, type: 'image' }]);
+          }
+
           if (eventToEdit.gates) setGates(eventToEdit.gates);
           if (eventToEdit.gallery) {
             setGallery(eventToEdit.gallery);
@@ -334,6 +353,8 @@ const CreateEvent = () => {
             if (draft.convenienceFeeRate) setConvenienceFeeRate(draft.convenienceFeeRate);
             if (draft.convenienceFeeType) setConvenienceFeeType(draft.convenienceFeeType);
             if (draft.gates) setGates(draft.gates);
+            if (draft.mainMedia) setMainMedia(draft.mainMedia);
+            if (draft.layoutMedia) setLayoutMedia(draft.layoutMedia);
             if (draft.gallery) {
               setGallery(draft.gallery);
               setGalleryMetadata(draft.gallery.map((url: string) => ({ name: url, size: 0, id: url })));
@@ -358,6 +379,8 @@ const CreateEvent = () => {
           ticketCategories, gstEnabled, cgstRate, sgstRate, convenienceFeeEnabled, convenienceFeeRate, convenienceFeeType,
           video_url: videoPreview,
           image_url: imagePreview,
+          mainMedia,
+          layoutMedia,
           timestamp: Date.now()
         };
         localStorage.setItem('ticketliv_event_draft', JSON.stringify(draftData));
@@ -395,6 +418,30 @@ const CreateEvent = () => {
     if (file) {
       const url = URL.createObjectURL(file);
       setLayoutPreview(url);
+    }
+  };
+
+  const handleMediaAdd = (type: 'main' | 'layout', mediaType: 'image' | 'video', e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      const newItem: MediaItem = { url, type: mediaType, file };
+      if (type === 'main') {
+        setMainMedia(prev => [...prev, newItem]);
+        if (mediaType === 'image' && !imagePreview) setImagePreview(url);
+        if (mediaType === 'video' && !videoPreview) setVideoPreview(url);
+      } else {
+        setLayoutMedia(prev => [...prev, newItem]);
+        if (!layoutPreview) setLayoutPreview(url);
+      }
+    }
+  };
+
+  const removeMediaItem = (type: 'main' | 'layout', index: number) => {
+    if (type === 'main') {
+      setMainMedia(prev => prev.filter((_, i) => i !== index));
+    } else {
+      setLayoutMedia(prev => prev.filter((_, i) => i !== index));
     }
   };
 
@@ -581,6 +628,8 @@ const CreateEvent = () => {
         convenienceFeeType
       },
       gates: gates,
+      mainMedia: mainMedia,
+      layoutMedia: layoutMedia,
       status: finalStatus,
       sales: 0,
       revenue: 0,
@@ -793,61 +842,60 @@ const CreateEvent = () => {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
-              {/* Image Poster */}
-              <div className="form-group">
-                <label style={labelStyle}>Main Event Poster</label>
-                <div
-                  onClick={() => document.getElementById('poster-upload')?.click()}
-                  style={{ background: 'rgba(255,255,255,0.02)', border: '2px dashed rgba(255,255,255,0.1)', borderRadius: '24px', aspectRatio: '16/9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden', position: 'relative' }}
-                >
-                  <input id="poster-upload" type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
-                  {imagePreview ? (
-                    <img src={imagePreview} alt="Poster" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <div style={{ textAlign: 'center' }}>
-                      <Upload size={28} style={{ color: 'var(--text-muted)', marginBottom: '10px' }} />
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Click to Upload</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '32px' }}>
+              {/* Main Media Section */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <label style={labelStyle}>Main Media Showcase (Poster/Teasers)</label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button type="button" onClick={() => document.getElementById('main-image-upload')?.click()} style={{ background: 'rgba(236,72,153,0.1)', color: '#ec4899', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: 600 }}>+ Image</button>
+                    <button type="button" onClick={() => document.getElementById('main-video-upload')?.click()} style={{ background: 'rgba(236,72,153,0.1)', color: '#ec4899', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: 600 }}>+ Video</button>
+                  </div>
+                  <input id="main-image-upload" type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleMediaAdd('main', 'image', e)} />
+                  <input id="main-video-upload" type="file" accept="video/*" style={{ display: 'none' }} onChange={(e) => handleMediaAdd('main', 'video', e)} />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '16px', background: 'rgba(255,255,255,0.01)', padding: '20px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', minHeight: '160px' }}>
+                  {mainMedia.map((item, idx) => (
+                    <div key={idx} style={{ position: 'relative', borderRadius: '14px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', aspectRatio: '1' }}>
+                      {item.type === 'video' ? (
+                        <div style={{ width: '100%', height: '100%', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Play size={24} color="#ec4899" />
+                        </div>
+                      ) : (
+                        <img src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      )}
+                      <button type="button" onClick={() => removeMediaItem('main', idx)} style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.6)', borderRadius: '50%', color: 'white', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>×</button>
+                    </div>
+                  ))}
+                  {mainMedia.length === 0 && (
+                    <div style={{ gridColumn: '1/-1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>
+                      <Camera size={32} style={{ marginBottom: '8px' }} />
+                      <p style={{ fontSize: '11px' }}>No media added yet</p>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Video Teaser */}
-              <div className="form-group">
-                <label style={labelStyle}>Video Teaser</label>
-                <div
-                  onClick={() => document.getElementById('video-upload')?.click()}
-                  style={{ background: 'rgba(255,255,255,0.02)', border: '2px dashed rgba(255,255,255,0.1)', borderRadius: '24px', aspectRatio: '16/9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden', position: 'relative' }}
-                >
-                  <input id="video-upload" type="file" accept="video/*" style={{ display: 'none' }} onChange={handleVideoUpload} />
-                  {videoPreview ? (
-                    <div style={{ width: '100%', height: '100%', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Play size={40} color="var(--accent-primary)" />
-                    </div>
-                  ) : (
-                    <div style={{ textAlign: 'center' }}>
-                      <Video size={28} style={{ color: 'var(--text-muted)', marginBottom: '10px' }} />
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Click to Upload</p>
-                    </div>
-                  )}
+              {/* Layout Media Section */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <label style={labelStyle}>Venue Layout & Entry Maps</label>
+                  <button type="button" onClick={() => document.getElementById('layout-media-upload')?.click()} style={{ background: 'rgba(59,130,246,0.1)', color: '#3b82f6', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: 600 }}>+ Add Map</button>
+                  <input id="layout-media-upload" type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleMediaAdd('layout', 'image', e)} />
                 </div>
-              </div>
 
-              {/* Layout Map */}
-              <div className="form-group">
-                <label style={labelStyle}>Venue Layout Map</label>
-                <div
-                  onClick={() => document.getElementById('layout-upload')?.click()}
-                  style={{ background: 'rgba(255,255,255,0.02)', border: '2px dashed rgba(255,255,255,0.1)', borderRadius: '24px', aspectRatio: '16/9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden', position: 'relative' }}
-                >
-                  <input id="layout-upload" type="file" accept="image/*" style={{ display: 'none' }} onChange={handleLayoutUpload} />
-                  {layoutPreview ? (
-                    <img src={layoutPreview} alt="Layout" style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '10px' }} />
-                  ) : (
-                    <div style={{ textAlign: 'center' }}>
-                      <MapPin size={28} style={{ color: 'var(--text-muted)', marginBottom: '10px' }} />
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Click to Upload</p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '16px', background: 'rgba(255,255,255,0.01)', padding: '20px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', minHeight: '160px' }}>
+                  {layoutMedia.map((item, idx) => (
+                    <div key={idx} style={{ position: 'relative', borderRadius: '14px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', aspectRatio: '1' }}>
+                      <img src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <button type="button" onClick={() => removeMediaItem('layout', idx)} style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.6)', borderRadius: '50%', color: 'white', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>×</button>
+                    </div>
+                  ))}
+                  {layoutMedia.length === 0 && (
+                    <div style={{ gridColumn: '1/-1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>
+                      <MapPin size={32} style={{ marginBottom: '8px' }} />
+                      <p style={{ fontSize: '11px' }}>No layout maps added</p>
                     </div>
                   )}
                 </div>
