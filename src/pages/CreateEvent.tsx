@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, Save, MapPin, Calendar, Clock, Tag, Ticket, Plus, Trash2, Info, CheckSquare, XCircle, AlertTriangle, AlertCircle, Globe, Star, Play, Video, FileText, Sparkles, Camera, PieChart, Infinity as InfinityIcon } from 'lucide-react';
+import { Save, MapPin, Calendar, Clock, Tag, Ticket, Plus, Trash2, Info, CheckSquare, XCircle, AlertTriangle, AlertCircle, Globe, Star, Play, Video, FileText, Sparkles, Camera, PieChart, Infinity as InfinityIcon } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { useApp, type AppEvent, type TicketCategory } from '../context/AppContext';
+import api from '../services/api';
+import { useApp, type AppEvent, type TicketCategory, type MediaItem } from '../context/AppContext';
 
 const getSponsorIcon = (iconName: string) => {
   switch (iconName) {
@@ -218,7 +219,7 @@ const CreateEvent = () => {
 
   // Sponsors State
   const [sponsors, setSponsors] = useState<{ name: string, tier: string, icon: string, color: string }[]>([]);
-  const [galleryMetadata, setGalleryMetadata] = useState<{ name: string, size: number, id: string }[]>([]);
+  const [galleryMetadata, setGalleryMetadata] = useState<{ name: string, size: number, id: string, file?: File }[]>([]);
 
   // Policies State
   const [prohibitedItems, setProhibitedItems] = useState<{ label: string, icon: string }[]>([]);
@@ -392,7 +393,7 @@ const CreateEvent = () => {
     title, presenterName, organizerName, date, time, location, description, venueAddress, mapUrl, termsStr,
     selectedCategoryIds, extraInfo, highlights,
     ticketCategories, gstEnabled, cgstRate, sgstRate, convenienceFeeEnabled, convenienceFeeRate, convenienceFeeType,
-    imagePreview, videoPreview, layoutPreview, gallery, sponsors, prohibitedItems, refundPolicy, entryPolicy, supportEmail, supportPhone, fieldConfig, editId, gates
+    imagePreview, videoPreview, layoutPreview, mainMedia, layoutMedia, gallery, sponsors, prohibitedItems, refundPolicy, entryPolicy, supportEmail, supportPhone, fieldConfig, editId, gates
   ]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -507,7 +508,8 @@ const CreateEvent = () => {
         const newMeta = uniqueNewFiles.map((file, i) => ({
           name: file.name,
           size: file.size,
-          id: newImages[i]
+          id: newImages[i],
+          file: file
         }));
 
         setGallery([...gallery, ...newImages]);
@@ -576,6 +578,18 @@ const CreateEvent = () => {
     setGates(gates.filter((_, i) => i !== index));
   };
 
+  const uploadFile = async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await api.post('/media/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    }) as any;
+    if (res?.success && res.data?.url) {
+      return res.data.url;
+    }
+    throw new Error('File upload failed');
+  };
+
 
   const handleSubmit = async (status: 'Live' | 'Cancelled' | 'Sold Out' | 'Completed' | 'Draft') => {
     if (!title.trim()) {
@@ -591,55 +605,90 @@ const CreateEvent = () => {
     const canDirectPublish = currentAdminUser && ['Super Admin', 'Admin', 'Manager'].includes(currentAdminUser.role);
     const finalStatus = (status === 'Live' && !canDirectPublish) ? 'Pending Approval' : status;
 
-    const eventPayload = {
-      title,
-      date,
-      time,
-      event_date: date && time ? `${date}T${time}:00Z` : '',
-      location,
-      venue_address: venueAddress,
-      map_url: mapUrl,
-      description,
-      extra_info: { ...extraInfo, galleryMetadata },
-      category_id: selectedCategoryIds[0],
-      categoryIds: selectedCategoryIds,
-      ticketCategories,
-      price: ticketCategories.length > 0 ? Number(ticketCategories[0].price) : 0,
-      image_url: imagePreview || '',
-      video_url: videoPreview || '',
-      presenter_name: presenterName,
-      organizer_name: organizerName,
-      more_info: highlights,
-      layout_image: layoutPreview || '',
-      gallery: gallery,
-      sponsors: sponsors,
-      prohibited_items: prohibitedItems,
-      refund_policy: refundPolicy,
-      entry_policy: entryPolicy,
-      support_email: supportEmail,
-      support_phone: supportPhone,
-      field_config: fieldConfig,
-      financials: {
-        gstEnabled,
-        cgstRate,
-        sgstRate,
-        convenienceFeeEnabled,
-        convenienceFeeRate,
-        convenienceFeeType
-      },
-      gates: gates,
-      mainMedia: mainMedia,
-      layoutMedia: layoutMedia,
-      status: finalStatus,
-      sales: 0,
-      revenue: 0,
-      revenueCurrency: 'INR'
-    };
+    const toastId = toast.loading(status === 'Draft' ? "Saving draft..." : "Publishing event...");
 
     try {
+      // 1. Upload Main Media files
+      const finalMainMedia = await Promise.all(mainMedia.map(async (item) => {
+        if (item.file) {
+          const url = await uploadFile(item.file);
+          return { ...item, url, file: undefined };
+        }
+        return item;
+      }));
+
+      // 2. Upload Layout Media files
+      const finalLayoutMedia = await Promise.all(layoutMedia.map(async (item) => {
+        if (item.file) {
+          const url = await uploadFile(item.file);
+          return { ...item, url, file: undefined };
+        }
+        return item;
+      }));
+
+      // 3. Upload Gallery files
+      const finalGalleryUrls = await Promise.all(galleryMetadata.map(async (m) => {
+        if (m.file) {
+          return await uploadFile(m.file);
+        }
+        return m.id; // Existing URL
+      }));
+
+      // 4. Update Gallery Metadata with new URLs
+      const finalGalleryMetadata = galleryMetadata.map((m, i) => ({
+        name: m.name,
+        size: m.size,
+        id: finalGalleryUrls[i]
+      }));
+
+      const eventPayload = {
+        title,
+        date,
+        time,
+        event_date: date && time ? `${date}T${time}:00Z` : '',
+        location,
+        venue_address: venueAddress,
+        map_url: mapUrl,
+        description,
+        extra_info: { ...extraInfo, galleryMetadata: finalGalleryMetadata },
+        category_id: selectedCategoryIds[0],
+        categoryIds: selectedCategoryIds,
+        ticketCategories,
+        price: ticketCategories.length > 0 ? Number(ticketCategories[0].price) : 0,
+        image_url: finalMainMedia.find(m => m.type === 'image')?.url || '',
+        video_url: finalMainMedia.find(m => m.type === 'video')?.url || '',
+        presenter_name: presenterName,
+        organizer_name: organizerName,
+        more_info: highlights,
+        layout_image: finalLayoutMedia[0]?.url || '',
+        gallery: finalGalleryUrls,
+        sponsors: sponsors,
+        prohibited_items: prohibitedItems,
+        refund_policy: refundPolicy,
+        entry_policy: entryPolicy,
+        support_email: supportEmail,
+        support_phone: supportPhone,
+        field_config: fieldConfig,
+        financials: {
+          gstEnabled,
+          cgstRate,
+          sgstRate,
+          convenienceFeeEnabled,
+          convenienceFeeRate,
+          convenienceFeeType
+        },
+        gates: gates,
+        mainMedia: finalMainMedia,
+        layoutMedia: finalLayoutMedia,
+        status: finalStatus,
+        sales: 0,
+        revenue: 0,
+        revenueCurrency: 'INR'
+      };
+
       if (editId) {
         await updateEvent(editId, eventPayload as Partial<AppEvent>);
-        toast.success(status === 'Draft' ? "Draft Saved Successfully!" : `Event ${status === 'Cancelled' ? 'Cancelled' : 'Updated'} Successfully!`);
+        toast.success(status === 'Draft' ? "Draft Saved Successfully!" : `Event ${status === 'Cancelled' ? 'Cancelled' : 'Updated'} Successfully!`, { id: toastId });
       } else {
         await addEvent(eventPayload as unknown as AppEvent);
         // Clear local backup once saved to cloud/DB
@@ -649,14 +698,14 @@ const CreateEvent = () => {
         if (finalStatus === 'Pending Approval') {
           successMsg = "Event submitted for approval!";
         } else if (status === 'Draft') {
-          successMsg = "Draft Created Successfully!";
+          successMsg = "Draft saved successfully!";
         }
-        toast.success(successMsg);
+        toast.success(successMsg, { id: toastId });
       }
-      setTimeout(() => navigate('/events'), 1500);
-    } catch (err) {
-      console.error("Submission failed:", err);
-      toast.error("Failed to save event. Please check your network and try again.");
+      navigate('/events');
+    } catch (err: any) {
+      console.error('Submit Error:', err);
+      toast.error(`Failed to save event: ${err.message || 'Check your connection.'}`, { id: toastId });
     }
   };
 
