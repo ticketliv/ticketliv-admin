@@ -206,7 +206,7 @@ const Ads = () => {
                 type="file"
                 id="file-upload"
                 className="hidden-input"
-                accept={adData.type === 'image' ? 'image/*' : 'video/*'}
+                accept={adData.type === 'image' ? 'image/jpeg,image/png,image/webp,image/jpg' : 'video/mp4,video/webm,video/ogg,video/quicktime'}
                 onChange={handleFileChange}
               />
               <label htmlFor="file-upload" className="upload-label">
@@ -219,7 +219,7 @@ const Ads = () => {
                   <>
                     <p className="upload-text"><span className="text-primary">Click to upload</span> or drag and drop</p>
                     <p className="upload-hint">
-                      {adData.type === 'image' ? 'PNG, JPG, WEBP up to 5MB (Recommend 1200x600px)' : 'MP4, WebM up to 50MB (Recommend 9:16 vertical or 16:9)'}
+                      {adData.type === 'image' ? 'JPEG, PNG, WEBP (Recommend 1200x600px)' : 'MP4, WebM, MOV (Recommend 9:16 vertical or 16:9)'}
                     </p>
                   </>
                 )}
@@ -313,10 +313,21 @@ const Ads = () => {
                 <tr key={ad.id}>
                   <td>
                     <div className="ad-info">
-                      {ad.type === 'video' || ad.video_url ? (
-                        <video src={getMediaUrl(ad.video_url || ad.media_url)} className="ad-thumb" muted />
+                      {ad.type === 'video' ? (
+                        <video 
+                          src={getMediaUrl(ad.video_url || ad.media_url)} 
+                          className="ad-thumb" 
+                          autoPlay 
+                          loop 
+                          muted 
+                          playsInline 
+                        />
                       ) : (
-                        <img src={getMediaUrl(ad.media_url)} className="ad-thumb" alt="Thumbnail" />
+                        <img 
+                          src={getMediaUrl(ad.media_url || ad.video_url)} 
+                          className="ad-thumb" 
+                          alt="Thumbnail" 
+                        />
                       )}
                       <div>
                         <div className="ad-title">{ad.title}</div>

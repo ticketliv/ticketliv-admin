@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Save, MapPin, Calendar, Clock, Tag, Ticket, Plus, Trash2, Info, CheckSquare, XCircle, AlertTriangle, AlertCircle, Globe, Star, Play, Video, FileText, Sparkles, Camera, PieChart, Infinity as InfinityIcon } from 'lucide-react';
+import { Save, MapPin, Calendar, Clock, Tag, Ticket, Plus, Trash2, Info, CheckSquare, XCircle, AlertTriangle, AlertCircle, Globe, Star, Video, FileText, Sparkles, Camera, PieChart, Infinity as InfinityIcon } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import api from '../services/api';
 import { useApp, type AppEvent, type TicketCategory, type MediaItem } from '../context/AppContext';
+import { getMediaUrl } from '../utils/imageUtils';
 
 const getSponsorIcon = (iconName: string) => {
   switch (iconName) {
@@ -393,17 +394,6 @@ const CreateEvent = () => {
     mainMedia, layoutMedia, gallery, galleryMetadata, sponsors, prohibitedItems, refundPolicy, entryPolicy, supportEmail, supportPhone, fieldConfig, editId, gates
   ]);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Legacy handler removed as handleMediaAdd is now used
-  };
-
-  const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Legacy handler removed as handleMediaAdd is now used
-  };
-
-  const handleLayoutUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Legacy handler removed as handleMediaAdd is now used
-  };
 
   const handleMediaAdd = (type: 'main' | 'layout', mediaType: 'image' | 'video', e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -890,19 +880,17 @@ const CreateEvent = () => {
                     <button type="button" onClick={() => document.getElementById('main-image-upload')?.click()} style={{ background: 'rgba(236,72,153,0.1)', color: '#ec4899', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: 600 }}>+ Image</button>
                     <button type="button" onClick={() => document.getElementById('main-video-upload')?.click()} style={{ background: 'rgba(236,72,153,0.1)', color: '#ec4899', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: 600 }}>+ Video</button>
                   </div>
-                  <input id="main-image-upload" type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleMediaAdd('main', 'image', e)} />
-                  <input id="main-video-upload" type="file" accept="video/*" style={{ display: 'none' }} onChange={(e) => handleMediaAdd('main', 'video', e)} />
+                  <input id="main-image-upload" type="file" accept="image/jpeg,image/png,image/webp,image/jpg" style={{ display: 'none' }} onChange={(e) => handleMediaAdd('main', 'image', e)} />
+                  <input id="main-video-upload" type="file" accept="video/mp4,video/webm,video/ogg,video/quicktime" style={{ display: 'none' }} onChange={(e) => handleMediaAdd('main', 'video', e)} />
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '16px', background: 'rgba(255,255,255,0.01)', padding: '20px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', minHeight: '160px' }}>
                   {mainMedia.map((item, idx) => (
                     <div key={idx} style={{ position: 'relative', borderRadius: '14px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', aspectRatio: '1' }}>
                       {item.type === 'video' ? (
-                        <div style={{ width: '100%', height: '100%', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Play size={24} color="#ec4899" />
-                        </div>
+                        <video src={getMediaUrl(item.url)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted />
                       ) : (
-                        <img src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <img src={getMediaUrl(item.url)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       )}
                       <button type="button" onClick={() => removeMediaItem('main', idx)} style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.6)', borderRadius: '50%', color: 'white', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>×</button>
                     </div>
@@ -921,13 +909,17 @@ const CreateEvent = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <label style={labelStyle}>Venue Layout & Entry Maps</label>
                   <button type="button" onClick={() => document.getElementById('layout-media-upload')?.click()} style={{ background: 'rgba(59,130,246,0.1)', color: '#3b82f6', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: 600 }}>+ Add Map</button>
-                  <input id="layout-media-upload" type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleMediaAdd('layout', 'image', e)} />
+                  <input id="layout-media-upload" type="file" accept="image/jpeg,image/png,image/webp,image/jpg,video/mp4,video/webm" style={{ display: 'none' }} onChange={(e) => handleMediaAdd('layout', 'image', e)} />
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '16px', background: 'rgba(255,255,255,0.01)', padding: '20px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', minHeight: '160px' }}>
                   {layoutMedia.map((item, idx) => (
                     <div key={idx} style={{ position: 'relative', borderRadius: '14px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', aspectRatio: '1' }}>
-                      <img src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      {item.type === 'video' ? (
+                        <video src={getMediaUrl(item.url)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted />
+                      ) : (
+                        <img src={getMediaUrl(item.url)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      )}
                       <button type="button" onClick={() => removeMediaItem('layout', idx)} style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.6)', borderRadius: '50%', color: 'white', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>×</button>
                     </div>
                   ))}
@@ -1301,13 +1293,20 @@ const CreateEvent = () => {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '16px' }}>
               {gallery.map((img: string, idx: number) => (
                 <div key={idx} style={{ aspectRatio: '1', borderRadius: '16px', overflow: 'hidden', position: 'relative', border: '1px solid rgba(255,255,255,0.1)' }}>
-                  <img src={img} alt="Gallery" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  {img.toLowerCase().endsWith('.mp4') || img.toLowerCase().endsWith('.webm') || galleryMetadata.find(m => m.id === img)?.file?.type.startsWith('video') ? (
+                    <video src={getMediaUrl(img)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted />
+                  ) : (
+                    <img src={getMediaUrl(img)} alt="Gallery" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  )}
                   <button onClick={() => removeGalleryItem(idx)} style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(0,0,0,0.6)', borderRadius: '50%', color: 'white', width: '24px', height: '24px', cursor: 'pointer', border: 'none' }}>×</button>
                 </div>
               ))}
               <label style={{ aspectRatio: '1', borderRadius: '16px', border: '2px dashed rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'rgba(255,255,255,0.02)' }}>
-                <input type="file" multiple accept="image/*" style={{ display: 'none' }} onChange={handleGalleryUpload} />
-                <Plus size={24} color="var(--text-muted)" />
+                <input type="file" multiple accept="image/jpeg,image/png,image/webp,image/jpg,video/mp4,video/webm" style={{ display: 'none' }} onChange={handleGalleryUpload} />
+                <div style={{ textAlign: 'center' }}>
+                  <Plus size={24} color="var(--text-muted)" />
+                  <p style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>Add Media</p>
+                </div>
               </label>
             </div>
           </div>
