@@ -473,10 +473,11 @@
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   z-index: 9999;
   padding: 20px;
+  padding-top: 8vh;
   animation: fadeIn 0.3s ease;
 }
 
@@ -576,6 +577,6 @@
 }
 
 @keyframes modalIn {
-  from { opacity: 0; transform: scale(0.9) translateY(40px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+  from { opacity: 0; transform: translateY(-40px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
