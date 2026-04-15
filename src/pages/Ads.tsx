@@ -95,7 +95,9 @@ const Ads = () => {
         const formData = new FormData();
         formData.append('file', fileObject);
         
-        const uploadRes = await api.post('/media/upload', formData) as any;
+        const uploadRes = await api.post('/media/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        }) as any;
         
         if (uploadRes?.success && uploadRes.data?.url) {
           uploadedUrl = uploadRes.data.url;
