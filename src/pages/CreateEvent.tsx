@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, MapPin, Calendar, Clock, Tag, Ticket, Plus, Trash2, Info, CheckSquare, XCircle, AlertTriangle, AlertCircle, Globe, Star, Play, Video, FileText, Sparkles, Camera, PieChart, Infinity as InfinityIcon } from 'lucide-react';
+import { Save, MapPin, Calendar, Clock, Ticket, Plus, Trash2, CheckSquare, AlertTriangle, AlertCircle, Globe, Star, Play, Video, Sparkles, Camera, PieChart, Infinity as InfinityIcon } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import api from '../services/api';
@@ -200,12 +200,7 @@ const CreateEvent = () => {
 
   // Metadata state
 
-  // Image Upload State
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [videoPreview, setVideoPreview] = useState<string | null>(null);
-  const [layoutPreview, setLayoutPreview] = useState<string | null>(null);
-
-  // New Multi-Media State
+  // Media States
   const [mainMedia, setMainMedia] = useState<MediaItem[]>([]);
   const [layoutMedia, setLayoutMedia] = useState<MediaItem[]>([]);
 
@@ -290,9 +285,6 @@ const CreateEvent = () => {
           if (eventToEdit.extra_info) {
             setExtraInfo(prev => ({ ...prev, ...eventToEdit.extra_info }));
           }
-          if (eventToEdit.layout_image) setLayoutPreview(eventToEdit.layout_image);
-          if (eventToEdit.image_url) setImagePreview(eventToEdit.image_url);
-          if (eventToEdit.video_url) setVideoPreview(eventToEdit.video_url);
 
           if (eventToEdit.mainMedia && eventToEdit.mainMedia.length > 0) {
             setMainMedia(eventToEdit.mainMedia);
@@ -378,8 +370,6 @@ const CreateEvent = () => {
           title, presenterName, organizerName, date, time, location, description, venueAddress, mapUrl, termsStr,
           selectedCategoryIds, extraInfo, highlights,
           ticketCategories, gstEnabled, cgstRate, sgstRate, convenienceFeeEnabled, convenienceFeeRate, convenienceFeeType,
-          video_url: videoPreview,
-          image_url: imagePreview,
           mainMedia,
           layoutMedia,
           timestamp: Date.now()
@@ -393,33 +383,19 @@ const CreateEvent = () => {
     title, presenterName, organizerName, date, time, location, description, venueAddress, mapUrl, termsStr,
     selectedCategoryIds, extraInfo, highlights,
     ticketCategories, gstEnabled, cgstRate, sgstRate, convenienceFeeEnabled, convenienceFeeRate, convenienceFeeType,
-    imagePreview, videoPreview, layoutPreview, mainMedia, layoutMedia, gallery, sponsors, prohibitedItems, refundPolicy, entryPolicy, supportEmail, supportPhone, fieldConfig, editId, gates
+    mainMedia, layoutMedia, gallery, galleryMetadata, sponsors, prohibitedItems, refundPolicy, entryPolicy, supportEmail, supportPhone, fieldConfig, editId, gates
   ]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Create a local blob URL for preview
-      const url = URL.createObjectURL(file);
-      setImagePreview(url);
-    }
+    // Legacy handler removed as handleMediaAdd is now used
   };
 
   const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Create a local blob URL for preview
-      const url = URL.createObjectURL(file);
-      setVideoPreview(url);
-    }
+    // Legacy handler removed as handleMediaAdd is now used
   };
 
   const handleLayoutUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setLayoutPreview(url);
-    }
+    // Legacy handler removed as handleMediaAdd is now used
   };
 
   const handleMediaAdd = (type: 'main' | 'layout', mediaType: 'image' | 'video', e: React.ChangeEvent<HTMLInputElement>) => {
@@ -429,11 +405,8 @@ const CreateEvent = () => {
       const newItem: MediaItem = { url, type: mediaType, file };
       if (type === 'main') {
         setMainMedia(prev => [...prev, newItem]);
-        if (mediaType === 'image' && !imagePreview) setImagePreview(url);
-        if (mediaType === 'video' && !videoPreview) setVideoPreview(url);
       } else {
         setLayoutMedia(prev => [...prev, newItem]);
-        if (!layoutPreview) setLayoutPreview(url);
       }
     }
   };
