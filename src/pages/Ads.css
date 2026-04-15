@@ -466,15 +466,16 @@
 .confirm-modal-overlay {
   position: fixed;
   top: 0;
-  left: 280px; /* Start from after the sidebar for better centering */
+  left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0,0,0,0.6);
-  backdrop-filter: blur(4px);
+  background: rgba(0,0,0,0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 9999;
   padding: 20px;
   animation: fadeIn 0.3s ease;
 }

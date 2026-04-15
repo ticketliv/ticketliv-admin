@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { UploadCloud, Image as ImageIcon, Video, Link as LinkIcon, Save, CheckCircle, Eye, MousePointerClick, Trash2 } from 'lucide-react';
 import api from '../services/api';
 import { CONFIG } from '../config/constants';
+import { getMediaUrl } from '../utils/imageUtils';
 import './Ads.css';
 
 interface AdData {
@@ -264,11 +265,11 @@ const Ads = () => {
               {/* The AD Component */}
               <div className="mockup-ad-container">
                 {adData.fileUrl ? (
-                   adData.type === 'image' ? (
-                     <img src={adData.fileUrl} alt="Ad Preview" className="preview-media image" />
-                   ) : (
-                     <video src={adData.fileUrl} className="preview-media video" autoPlay loop muted playsInline />
-                   )
+                    adData.type === 'image' ? (
+                      <img src={getMediaUrl(adData.fileUrl)} alt="Ad Preview" className="preview-media image" />
+                    ) : (
+                      <video src={getMediaUrl(adData.fileUrl)} className="preview-media video" autoPlay loop muted playsInline />
+                    )
                 ) : (
                   <div className="empty-preview">
                     <ImageIcon size={32} className="text-muted" style={{ marginBottom: '8px' }} />
@@ -319,10 +320,10 @@ const Ads = () => {
                 <tr key={ad.id}>
                   <td>
                     <div className="ad-info">
-                      {ad.type === 'video' && ad.video_url ? (
-                        <video src={ad.video_url.startsWith('http') ? ad.video_url : `${CONFIG.ASSET_URL.replace('/uploads', '')}${ad.video_url}`} className="ad-thumb" muted />
+                      {ad.type === 'video' || ad.video_url ? (
+                        <video src={getMediaUrl(ad.video_url || ad.media_url)} className="ad-thumb" muted />
                       ) : (
-                        <img src={ad.media_url?.startsWith('http') ? ad.media_url : `${CONFIG.ASSET_URL.replace('/uploads', '')}${ad.media_url}`} className="ad-thumb" alt="Thumbnail" />
+                        <img src={getMediaUrl(ad.media_url)} className="ad-thumb" alt="Thumbnail" />
                       )}
                       <div>
                         <div className="ad-title">{ad.title}</div>

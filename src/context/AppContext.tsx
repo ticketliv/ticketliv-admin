@@ -365,7 +365,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           const usersRes = await AuthService.getAllUsers();
           if (usersRes) {
             const usersData = Array.isArray(usersRes) ? usersRes : (usersRes as any).data;
-            if (Array.isArray(usersData) && usersData.length > 0) setAdminUsers(usersData);
+            if (Array.isArray(usersData) && usersData.length > 0) {
+              const mappedUsers = usersData.map((u: any) => ({
+                ...u,
+                status: u.is_active ? 'Active' : 'Inactive',
+                permissions: typeof u.permissions === 'string' ? JSON.parse(u.permissions) : (u.permissions || [])
+              }));
+              setAdminUsers(mappedUsers);
+            }
           }
  
           // Fetch Transactions ledger
@@ -644,17 +651,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [currentAdminUser]);
 
-  const deleteAdminUser = async (id: string) => {
+  const deleteAdminUser = React.useCallback(async (id: string) => {
     try {
-      // In a real system we would call a soft-delete endpoint.
-      // For now we simulate soft delete by setting status to Inactive globally.
-      setAdminUsers(prev => prev.map(user => 
-        user.id === id ? { ...user, status: 'Inactive' } : user
-      ));
+      await AuthService.deleteUser(id);
+      setAdminUsers(prev => prev.filter(user => user.id !== id));
+      addAuditLog(`Permanently deleted user ${id}`, 'User');
     } catch (err) { 
-      console.error('Failed to soft-delete user', err);
+      console.error('Failed to permanently delete user', err);
+      throw err;
     }
-  };
+  }, [addAuditLog]);
 
   const switchCurrentUser = (id: string) => {
     const user = adminUsers.find(u => u.id === id);

@@ -26,6 +26,7 @@ const AdminControl = () => {
     addAdminUser, 
     updateAdminUser, 
     deleteAdminUser,
+    currentAdminUser,
     pendingEvents: events,
     approveAdminEvent,
     rejectAdminEvent,
@@ -45,6 +46,12 @@ const AdminControl = () => {
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'Admin' as UserRole, permissions: [...DEFAULT_ROLE_PERMISSIONS['Admin']] as PermissionRoute[] });
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
   const [newAssignment, setNewAssignment] = useState({ scannerId: '', eventId: '', eventTitle: '' });
+  
+  const [confirmDeleteModal, setConfirmDeleteModal] = useState<{ isOpen: boolean; userId: string; userName: string }>({
+    isOpen: false,
+    userId: '',
+    userName: ''
+  });
 
   // ----------------------------------------
   // Handlers
@@ -96,12 +103,32 @@ const AdminControl = () => {
     }
   };
 
-  const handleDeleteUser = async (id: string) => {
+  const handleToggleStatus = async (user: AdminUser) => {
     try {
-      await deleteAdminUser(id);
-      toast.success('User deactivated successfully');
+      const newStatus = user.status === 'Active' ? 'Inactive' : 'Active';
+      await updateAdminUser(user.id, { status: newStatus });
+      toast.success(`User ${newStatus === 'Active' ? 'activated' : 'deactivated'} successfully`);
     } catch (e) {
-      toast.error('Failed to deactivate user');
+      toast.error('Failed to update status');
+    }
+  };
+
+  const handleDeleteClick = (user: AdminUser) => {
+    setConfirmDeleteModal({
+      isOpen: true,
+      userId: user.id,
+      userName: user.name
+    });
+  };
+
+  const confirmHardDelete = async () => {
+    if (!confirmDeleteModal.userId) return;
+    try {
+      await deleteAdminUser(confirmDeleteModal.userId);
+      toast.success('User permanently deleted');
+      setConfirmDeleteModal({ isOpen: false, userId: '', userName: '' });
+    } catch (e) {
+       toast.error('Failed to delete user');
     }
   };
 
@@ -326,9 +353,27 @@ const AdminControl = () => {
                       <td>
                         <div className="ac-actions">
                           <button className="ac-btn-icon" title="Edit" onClick={() => handleEditUserClick(user)}><Edit2 size={16} /></button>
-                          {user.status === 'Active' && (
-                            <button className="ac-btn-icon ac-btn-reject" onClick={() => handleDeleteUser(user.id)} title="Deactivate"><Trash2 size={16} /></button>
-                          )}
+                          
+                          {/* Status Toggle */}
+                          <button 
+                            className={`ac-btn-icon ${user.status === 'Active' ? 'ac-btn-reject' : 'ac-btn-approve'}`} 
+                            onClick={() => handleToggleStatus(user)} 
+                            title={user.status === 'Active' ? 'Deactivate' : 'Activate'}
+                            disabled={user.id === currentAdminUser?.id}
+                          >
+                            {user.status === 'Active' ? <XCircle size={16} /> : <CheckCircle size={16} />}
+                          </button>
+
+                          {/* Permanent Delete */}
+                          <button 
+                            className="ac-btn-icon" 
+                            style={{ background: 'rgba(244, 63, 94, 0.05)', color: '#f43f5e' }}
+                            onClick={() => handleDeleteClick(user)} 
+                            title="Delete Permanently"
+                            disabled={user.id === currentAdminUser?.id}
+                          >
+                            <Trash2 size={16} />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -684,6 +729,32 @@ const AdminControl = () => {
         </div>
       )}
 
+      {/* Hard Delete Confirmation Modal */}
+      {confirmDeleteModal.isOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', backdropFilter: 'blur(8px)' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '400px', padding: '32px', textAlign: 'center', border: '1px solid rgba(244, 63, 94, 0.3)' }}>
+             <div style={{ width: '64px', height: '64px', background: 'rgba(244, 63, 94, 0.1)', color: '#f43f5e', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                <Trash2 size={32} />
+             </div>
+             <h3 style={{ color: 'white', fontSize: '20px', fontWeight: 800, marginBottom: '12px' }}>Delete User?</h3>
+             <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '32px', lineHeight: 1.6 }}>
+                Are you sure you want to delete <strong>{confirmDeleteModal.userName}</strong>? This action is permanent and cannot be undone.
+             </p>
+             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <button 
+                  className="btn-cancel" 
+                  onClick={() => setConfirmDeleteModal({ isOpen: false, userId: '', userName: '' })}
+                  style={{ padding: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', color: 'white' }}
+                >Cancel</button>
+                <button 
+                  className="btn-confirm-delete" 
+                  onClick={confirmHardDelete}
+                  style={{ padding: '12px', background: '#f43f5e', border: 'none', borderRadius: '12px', color: 'white', fontWeight: 700 }}
+                >Delete</button>
+             </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
