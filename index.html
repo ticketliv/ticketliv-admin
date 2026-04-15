@@ -2,8 +2,31 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/favicon.png" />
+
+    <!-- ===== Favicon — Best Size (Market Standard) ===== -->
+    <!-- SVG: Scales perfectly to ALL sizes — 16px tab to 512px splash -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=4" />
+
+    <!-- 32x32: Fallback for older browsers / Windows taskbar -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.svg?v=4" />
+
+    <!-- 16x16: Tiny browser tab fallback -->
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon.svg?v=4" />
+
+    <!-- 180x180: Apple Touch Icon (iOS home screen) -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicon.svg?v=4" />
+
+    <!-- PWA Web App Manifest (192x192 & 512x512 defined inside) -->
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Windows / Edge tile color -->
+    <meta name="msapplication-TileColor" content="#4f46e5" />
+
+    <!-- Browser/PWA theme color (Android chrome bar) -->
+    <meta name="theme-color" content="#4f46e5" />
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="TicketLiv Admin — Manage events, tickets, and revenue in one place." />
     <title>TicketLiv Admin</title>
   </head>
   <body>
