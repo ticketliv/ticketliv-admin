@@ -194,9 +194,16 @@ const BulkTickets = () => {
       </div>
 
       <div className="master-layout">
-        <div style={{ marginBottom: '24px' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '4px', color: '#fff' }}>Bulk Ticket Generation</h2>
-          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px' }}>Automated high-fidelity pass synthesis and batch compilation system.</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', background: 'rgba(255,255,255,0.02)', padding: '15px 20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ background: 'var(--accent-primary)', padding: '8px', borderRadius: '10px', display: 'flex' }}>
+               <QrCode size={18} color="#fff" />
+            </div>
+            <div>
+              <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#fff' }}>Bulk Ticket Generation</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '2px 0 0 0', fontWeight: 500 }}>Automated high-fidelity pass synthesis and batch compilation system.</p>
+            </div>
+          </div>
         </div>
 
         <div className="content-grid">
@@ -327,7 +334,7 @@ const BulkTickets = () => {
         .glow-orb.p1 { background: #6366f1; top: -100px; right: -100px; }
         .glow-orb.p2 { background: #4f46e5; bottom: -200px; left: -100px; }
         .mesh-gradient { position: absolute; inset: 0; background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.02) 0%, transparent 80%); }
-        .master-layout { position: relative; z-index: 10; max-width: 1400px; margin: 0 auto; }
+        .master-layout { position: relative; z-index: 10; max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
         .content-grid { display: grid; grid-template-columns: 460px 1fr; gap: 3rem; align-items: stretch; }
         .glass-card { 
           background: rgba(255, 255, 255, 0.02); 

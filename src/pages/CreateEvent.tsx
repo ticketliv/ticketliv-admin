@@ -81,8 +81,6 @@ const CreateEvent = () => {
   const [venueAddress, setVenueAddress] = useState('');
   const [mapUrl, setMapUrl] = useState('');
   const [termsStr, setTermsStr] = useState('Standard Terms Apply');
-  const [isFeatured, setIsFeatured] = useState(false);
-  const [isPopular, setIsPopular] = useState(false);
 
   // Time Helpers
   const getTimeComponents = (timeStr: string) => {
@@ -131,12 +129,11 @@ const CreateEvent = () => {
     backdropFilter: 'blur(25px)',
     border: '1px solid rgba(255, 255, 255, 0.08)',
     borderRadius: '24px',
-    padding: '28px',
+    padding: '24px',
     display: 'flex',
     flexDirection: 'column',
-    gap: '24px',
-    boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
-    marginBottom: '16px'
+    gap: '16px',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.15)'
   };
 
   const inputStyle: React.CSSProperties = {
@@ -196,8 +193,6 @@ const CreateEvent = () => {
   const [extraInfo, setExtraInfo] = useState({
     specialInstructions: '',
     maxTicketsPerUser: 'unlimited',
-    ageRestriction: 'All Ages',
-    parkingAvailable: false,
   });
 
   const [highlights, setHighlights] = useState<{ label: string, value: string, icon: string }[]>([]);
@@ -283,8 +278,7 @@ const CreateEvent = () => {
             setConvenienceFeeRate(eventToEdit.financials.platformFeeRate || eventToEdit.financials.convenienceFeeRate || 0);
             setConvenienceFeeType(eventToEdit.financials.platformFeeType || eventToEdit.financials.convenienceFeeType || 'percentage');
           }
-          setIsFeatured(eventToEdit.is_featured || false);
-          setIsPopular(eventToEdit.is_popular || false);
+          // status fields removed
           setPresenterName(eventToEdit.presenter_name || '');
           setOrganizerName(eventToEdit.organizer_name || '');
 
@@ -328,8 +322,7 @@ const CreateEvent = () => {
             if (draft.venueAddress) setVenueAddress(draft.venueAddress);
             if (draft.mapUrl) setMapUrl(draft.mapUrl);
             if (draft.termsStr) setTermsStr(draft.termsStr);
-            if (draft.isFeatured !== undefined) setIsFeatured(draft.isFeatured);
-            if (draft.isPopular !== undefined) setIsPopular(draft.isPopular);
+            // status fields removed
             if (draft.selectedCategoryIds) setSelectedCategoryIds(draft.selectedCategoryIds);
             if (draft.extraInfo) setExtraInfo(draft.extraInfo);
             if (draft.highlights) setHighlights(draft.highlights);
@@ -361,7 +354,7 @@ const CreateEvent = () => {
       const saveTimer = setTimeout(() => {
         const draftData = {
           title, presenterName, organizerName, date, time, location, description, venueAddress, mapUrl, termsStr,
-          isFeatured, isPopular, selectedCategoryIds, extraInfo, highlights,
+          selectedCategoryIds, extraInfo, highlights,
           ticketCategories, gstEnabled, cgstRate, sgstRate, convenienceFeeEnabled, convenienceFeeRate, convenienceFeeType,
           video_url: videoPreview,
           image_url: imagePreview,
@@ -374,7 +367,7 @@ const CreateEvent = () => {
     }
   }, [
     title, presenterName, organizerName, date, time, location, description, venueAddress, mapUrl, termsStr,
-    isFeatured, isPopular, selectedCategoryIds, extraInfo, highlights,
+    selectedCategoryIds, extraInfo, highlights,
     ticketCategories, gstEnabled, cgstRate, sgstRate, convenienceFeeEnabled, convenienceFeeRate, convenienceFeeType,
     imagePreview, videoPreview, layoutPreview, gallery, sponsors, prohibitedItems, refundPolicy, entryPolicy, supportEmail, supportPhone, fieldConfig, editId, gates
   ]);
@@ -567,8 +560,6 @@ const CreateEvent = () => {
       price: ticketCategories.length > 0 ? Number(ticketCategories[0].price) : 0,
       image_url: imagePreview || '',
       video_url: videoPreview || '',
-      is_featured: isFeatured,
-      is_popular: isPopular,
       presenter_name: presenterName,
       organizer_name: organizerName,
       more_info: highlights,
@@ -585,9 +576,6 @@ const CreateEvent = () => {
         gstEnabled,
         cgstRate,
         sgstRate,
-        platformFeeEnabled: convenienceFeeEnabled,
-        platformFeeRate: convenienceFeeRate,
-        platformFeeType: convenienceFeeType,
         convenienceFeeEnabled,
         convenienceFeeRate,
         convenienceFeeType
@@ -626,15 +614,20 @@ const CreateEvent = () => {
   return (
     <>
       <div className="dashboard-content" style={{ animation: 'fadeInUp 0.6s ease forwards' }}>
-        <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '4px' }}>{editId ? 'Edit Event Details' : 'Add New Event'}</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>{editId ? 'Refine your event details and manage its current status for your audience.' : 'Tell us about your event to get it listed on the TicketLiv mobile app.'}</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', background: 'rgba(255,255,255,0.02)', padding: '15px 20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ background: 'var(--accent-primary)', padding: '8px', borderRadius: '10px', display: 'flex' }}>
+              <Sparkles size={18} color="#fff" />
+            </div>
+            <div>
+              <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#fff' }}>{editId ? 'Edit Event Details' : 'Add New Event'}</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '2px 0 0 0', fontWeight: 500 }}>{editId ? 'Refine your event details and manage its current status for your audience.' : 'Tell us about your event to get it listed on the TicketLiv mobile app.'}</p>
+            </div>
           </div>
           <div />
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
           {/* 01 Basic Details */}
           <div style={cardStyle}>
@@ -1188,52 +1181,13 @@ const CreateEvent = () => {
             </div>
           </div>
 
+
+
           <div style={cardStyle}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '14px' }}>
               <div>
                 <h3 style={sectionHeaderStyle}>
                   <span style={{ fontSize: '12px', color: 'var(--accent-primary)', opacity: 0.8, letterSpacing: '2px' }}>09</span>
-                  <Globe size={20} color="#eab308" /> About the Host
-                </h3>
-                <p style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Tell your audience who is organizing the event to establish credibility and trust.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => toggleFieldMandatory('about_host')}
-                style={{
-                  background: fieldConfig.about_host === 'Mandatory' ? 'rgba(234, 179, 8, 0.1)' : 'rgba(255, 255, 255, 0.05)',
-                  padding: '4px 10px',
-                  borderRadius: '10px',
-                  color: fieldConfig.about_host === 'Mandatory' ? '#eab308' : 'rgba(255, 255, 255, 0.4)',
-                  fontSize: '10px',
-                  fontWeight: 700,
-                  border: 'none',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-              >
-                {fieldConfig.about_host.toUpperCase()}
-              </button>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-              <div className="form-group">
-                <label style={labelStyle}>Presented By</label>
-                <input type="text" value={presenterName} onChange={(e) => setPresenterName(e.target.value)} style={inputStyle} placeholder="e.g. Red Bull India" />
-              </div>
-              <div className="form-group">
-                <label style={labelStyle}>Host Name</label>
-                <input type="text" value={organizerName} onChange={(e) => setOrganizerName(e.target.value)} style={inputStyle} placeholder="e.g. TicketLiv Concerts" />
-              </div>
-            </div>
-          </div>
-
-
-          <div style={cardStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '14px' }}>
-              <div>
-                <h3 style={sectionHeaderStyle}>
-                  <span style={{ fontSize: '12px', color: 'var(--accent-primary)', opacity: 0.8, letterSpacing: '2px' }}>10</span>
                   <Camera size={20} color="#f97316" /> Event Memories
                 </h3>
                 <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>Share photos from past events or professional shots to show users the mood of your event.</p>
@@ -1276,7 +1230,7 @@ const CreateEvent = () => {
             <div style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <h3 style={sectionHeaderStyle}>
-                  <span style={{ fontSize: '12px', color: 'var(--accent-primary)', opacity: 0.8, letterSpacing: '2px' }}>11</span>
+                  <span style={{ fontSize: '12px', color: 'var(--accent-primary)', opacity: 0.8, letterSpacing: '2px' }}>10</span>
                   <AlertCircle size={20} color="#f43f5e" /> Prohibited Items
                 </h3>
                 <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>List the items that aren't allowed at the venue to ensure a safe experience.</p>
@@ -1367,7 +1321,7 @@ const CreateEvent = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '14px' }}>
               <div>
                 <h3 style={sectionHeaderStyle}>
-                  <span style={{ fontSize: '12px', color: 'var(--accent-primary)', opacity: 0.8, letterSpacing: '2px' }}>12</span>
+                  <span style={{ fontSize: '12px', color: 'var(--accent-primary)', opacity: 0.8, letterSpacing: '2px' }}>11</span>
                   <CheckSquare size={20} color="#10b981" /> Policies & Trust
                 </h3>
                 <p style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Set your refund rules and contact details to build confidence with your ticket buyers.</p>
@@ -1424,7 +1378,7 @@ const CreateEvent = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '14px' }}>
               <div>
                 <h3 style={sectionHeaderStyle}>
-                  <span style={{ fontSize: '12px', color: 'var(--accent-primary)', opacity: 0.8, letterSpacing: '2px' }}>13</span>
+                  <span style={{ fontSize: '12px', color: 'var(--accent-primary)', opacity: 0.8, letterSpacing: '2px' }}>12</span>
                   <FileText size={20} color="#a855f7" /> Terms & Conditions
                 </h3>
                 <p style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Add the detailed rules and conditions to keep your event organized and clear.</p>
@@ -1464,7 +1418,7 @@ const CreateEvent = () => {
           <div style={cardStyle}>
             <div style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '14px' }}>
               <h3 style={sectionHeaderStyle}>
-                <span style={{ fontSize: '12px', color: 'var(--accent-primary)', opacity: 0.8, letterSpacing: '2px' }}>14</span>
+                <span style={{ fontSize: '12px', color: 'var(--accent-primary)', opacity: 0.8, letterSpacing: '2px' }}>13</span>
                 <PieChart size={20} color="#8b5cf6" /> Tax & Extra Fees
               </h3>
               <p style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Manage your tax settings and add any extra service fees for ticket sales.</p>

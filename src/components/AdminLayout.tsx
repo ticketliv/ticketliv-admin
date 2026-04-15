@@ -154,8 +154,9 @@ const AdminLayout = () => {
 
       {/* Main Content Area */}
       <main className="main-content">
-        {/* Top Sticky Header */}
-        <header className="top-header">
+        {/* Top Sticky Header - ONLY shown on Dashboard */}
+        {location.pathname === '/dashboard' && (
+          <header className="top-header">
             <div className="header-greeting">
               {/* Dynamic Greeting Title based on route could go here, but omitted for simplicity across generic paths */}
               <h2>{currentPage?.label || 'Admin Workspace'}</h2>
@@ -359,6 +360,7 @@ const AdminLayout = () => {
               </div>
             </div>
           </header>
+        )}
 
         {/* Dynamic Nested Content */}
         <div ref={scrollContainerRef} className="scrollable-container">

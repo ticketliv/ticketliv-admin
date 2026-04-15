@@ -159,6 +159,80 @@ input, select, textarea {
   100% { box-shadow: 0 0 15px var(--glow-primary); }
 }
 
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUpCentered {
+  from { opacity: 0; transform: translateY(20px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Global Centered Modal System */
+.modal-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(0, 0, 0, 0.8) !important;
+  backdrop-filter: blur(15px) !important;
+  -webkit-backdrop-filter: blur(15px) !important;
+  display: grid !important;
+  place-items: center !important; /* Perfect 'middle site' centering */
+  z-index: 10000000 !important; /* Extremely high to cover everything */
+  padding: 20px;
+  animation: modalFadeIn 0.3s ease-out;
+  overflow: hidden !important; /* Fix single screen view */
+}
+
+.modal-content {
+  background: #11121d !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 32px !important;
+  box-shadow: 0 50px 100px rgba(0, 0, 0, 0.9) !important;
+  width: 100% !important;
+  max-width: 600px;
+  padding: 40px !important;
+  position: relative !important;
+  overflow-y: auto !important;
+  max-height: 90vh !important;
+  animation: modalSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.modal-content::-webkit-scrollbar {
+  width: 6px;
+}
+.modal-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+.modal-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+.modal-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalSlideIn {
+  from { opacity: 0; transform: scale(0.95) translateY(20px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.modal-content.danger-modal {
+  border: 1px solid rgba(244, 63, 94, 0.4) !important;
+}
+
+
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;

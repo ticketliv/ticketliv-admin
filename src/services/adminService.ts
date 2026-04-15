@@ -1,8 +1,13 @@
 import api from './api';
 
 export const AdminService = {
-  getDashboardStats: async () => {
-    return api.get('/admin/dashboard/stats');
+  getDashboardStats: async (eventId?: string, categoryId?: string) => {
+    let url = '/admin/dashboard/stats';
+    const params = new URLSearchParams();
+    if (eventId && eventId !== 'all') params.append('eventId', eventId);
+    if (categoryId && categoryId !== 'all') params.append('categoryId', categoryId);
+    if (params.toString()) url += `?${params.toString()}`;
+    return api.get(url);
   },
 
   getAllBookings: async (page: number = 1, limit: number = 20, filters: Record<string, string | number | boolean> = {}) => {

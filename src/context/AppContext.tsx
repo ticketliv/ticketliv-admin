@@ -17,6 +17,13 @@ export interface Category {
   status: 'Active' | 'Inactive';
 }
 
+export interface MediaItem {
+  url: string;
+  type: 'image' | 'video';
+  file?: File;
+  name?: string;
+}
+
 export interface TicketCategory {
   id: number | string;
   name: string;
@@ -51,6 +58,10 @@ export interface AppEvent {
   revenueCurrency: string;
   tag?: string;
   tags?: string[];
+  created_at?: string;
+  createdAt?: string;
+  organizer_name?: string;
+  organizer_logo?: string;
   terms?: string[];
   timezone?: string;
   latitude?: number;
@@ -75,7 +86,6 @@ export interface AppEvent {
     convenienceFeeRate?: number;
     convenienceFeeType?: 'fixed' | 'percentage';
   };
-  createdAt?: string;
   updatedAt?: string;
   image_url?: string;
   video_url?: string;
@@ -91,8 +101,9 @@ export interface AppEvent {
   is_featured?: boolean;
   is_popular?: boolean;
   presenter_name?: string;
-  organizer_name?: string;
   gates?: string[];
+  mainMedia?: MediaItem[];
+  layoutMedia?: MediaItem[];
 }
 
 export interface Attendee {
@@ -238,7 +249,7 @@ interface AppContextType {
   assignAdminScanner: (scannerId: string, eventId: string) => Promise<void>;
   unassignAdminScanner: (assignmentId: string) => Promise<void>;
   dashboardStats: any; // metrics, revenueTrend, scanTrend, venueRevenue, activities, scans
-  refreshDashboardStats: () => Promise<void>;
+  refreshDashboardStats: (eventId?: string, categoryId?: string) => Promise<void>;
   refreshEvents: () => Promise<void>;
   auditLogs: AuditLog[];
   addAuditLog: (action: string, type: AuditLog['type'], metadata?: any) => void;
@@ -259,6 +270,15 @@ const initialEvents: AppEvent[] = [];
 const initialTransactions: Transaction[] = [];
 const initialAttendees: Attendee[] = [];
 const initialAdminUsers: AdminUser[] = [];
+
+const formatDate = (dateInput: string | null | undefined): string => {
+  if (!dateInput) return '';
+  const dateStr = String(dateInput);
+  if (dateStr.includes('T')) {
+    return dateStr.split('T')[0];
+  }
+  return dateStr;
+};
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -281,7 +301,7 @@ const mapCoupon = (c: any): Coupon => ({
   discountValue: parseFloat(c.discount_value || c.discountValue || '0'),
   minPurchase: parseFloat(c.min_purchase || c.minPurchase || '0'),
   maxDiscount: parseFloat(c.max_discount || c.maxDiscount || '0'),
-  expiryDate: c.expiry_date || c.expiryDate,
+  expiryDate: formatDate(c.expiry_date || c.expiryDate),
   usageLimit: parseInt(c.usage_limit || c.usageLimit || '0'),
   usedCount: parseInt(c.used_count || c.usedCount || '0'),
   status: c.status || 'Active',
@@ -297,6 +317,47 @@ const mapDiscount = (d: any): Discount => ({
   ruleValue: d.rule_value || d.ruleValue,
   status: d.status || 'Active',
   applicableEventIds: d.applicable_event_ids || d.applicableEventIds || []
+});
+
+const mapEvent = (e: any): AppEvent => ({
+  ...e,
+  date: formatDate(e.date || e.start_date || e.event_date),
+  time: e.time || (e.start_date ? new Date(e.start_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''),
+  start_date: formatDate(e.start_date),
+  end_date: formatDate(e.end_date),
+  createdAt: formatDate(e.created_at || e.createdAt),
+  updatedAt: formatDate(e.updated_at || e.updatedAt),
+  location: e.location || e.venue_name || '',
+  sales: parseInt(e.total_sales || e.sales || '0'),
+  revenue: parseFloat(e.total_revenue || e.revenue || '0'),
+  ticketCategories: Array.isArray(e.ticket_categories) ? e.ticket_categories : (e.ticketCategories || []),
+  image_url: e.image_url || '',
+  video_url: e.video_url || '',
+  layout_image: e.layout_image || '',
+  mainMedia: e.mainMedia || e.main_media || [],
+  layoutMedia: e.layoutMedia || e.layout_media || []
+});
+
+const mapTransaction = (t: any): Transaction => ({
+  id: t.id || t.transaction_id,
+  to: t.to || t.user_name || 'System',
+  amount: t.amount,
+  date: formatDate(t.date || t.created_at),
+  type: t.type || t.payment_method || 'Payment',
+  status: t.status 
+});
+
+const mapAttendee = (a: any): Attendee => ({
+  id: a.id,
+  fullName: a.fullName || a.user_name || 'Anonymous',
+  mobileNumber: a.mobileNumber || a.user_phone || '',
+  email: a.email || a.user_email || '',
+  category: a.category || a.ticket_type_name || '',
+  eventId: a.eventId || a.event_id,
+  ticketType: a.ticketType || a.ticket_type_name || '',
+  ticketCount: parseInt(a.ticketCount || a.quantity || '1'),
+  bookingDate: formatDate(a.bookingDate || a.booking_date || a.created_at),
+  status: a.status || 'Confirmed'
 });
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
@@ -358,7 +419,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           const eventsRes = await EventService.getAllEvents();
           if (eventsRes) {
             const eventsData = Array.isArray(eventsRes) ? eventsRes : (eventsRes as any).data;
-            if (Array.isArray(eventsData) && eventsData.length > 0) setEvents(eventsData);
+            if (Array.isArray(eventsData) && eventsData.length > 0) {
+              setEvents(eventsData.map(mapEvent));
+            }
           }
  
           // Fetch Team
@@ -379,7 +442,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           const trxRes = await AdminService.getTransactions();
           if (trxRes) {
             const trxData = Array.isArray(trxRes) ? trxRes : (trxRes as any).data;
-            if (Array.isArray(trxData)) setTransactions(trxData);
+            if (Array.isArray(trxData)) setTransactions(trxData.map(mapTransaction));
           }
 
           // Fetch Categories
@@ -426,14 +489,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           const attendeeRes = await AdminService.getAttendees();
           if (attendeeRes) {
              const attData = (attendeeRes as any).data || attendeeRes;
-             if (Array.isArray(attData)) setAttendees(attData);
+             if (Array.isArray(attData)) setAttendees(attData.map(mapAttendee));
           }
 
           // Fetch Pending Events
           const pendingRes = await AdminService.getPendingEvents();
           if (pendingRes) {
              const pendingData = (pendingRes as any).data || pendingRes;
-             if (Array.isArray(pendingData)) setPendingEvents(pendingData);
+             if (Array.isArray(pendingData)) setPendingEvents(pendingData.map(mapEvent));
           }
 
           // Fetch Scanners
@@ -478,7 +541,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
        const res = await EventService.createEvent(newEvent);
        if (res) {
          const eventData = (res as any).data || res;
-         setEvents(prev => [...prev, eventData as AppEvent]);
+         setEvents(prev => [...prev, mapEvent(eventData)]);
        }
     } catch (err) { 
       console.error('Failed to create event', err);
@@ -571,7 +634,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const res = await EventService.updateEvent(id, updatedData);
       if (res) {
         const eventData = (res as any).data || res;
-        setEvents(prev => prev.map(evt => evt.id === id ? (eventData as AppEvent) : evt));
+        setEvents(prev => prev.map(evt => evt.id === id ? mapEvent(eventData) : evt));
       }
     } catch (err) { 
       console.error('Failed to update event', err);
@@ -581,17 +644,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const refreshEvents = React.useCallback(async () => {
     try {
-      const res = await EventService.getAllEvents() as unknown as ApiResponse<AppEvent[]>;
-      if (res?.data) setEvents(res.data);
+      const res = await EventService.getAllEvents() as any;
+      const eventsData = res?.data || res;
+      if (Array.isArray(eventsData)) setEvents(eventsData.map(mapEvent));
     } catch (err) { 
       console.error('Failed to refresh events', err);
       throw err;
     }
   }, []);
 
-  const refreshDashboardStats = React.useCallback(async () => {
+  const refreshDashboardStats = React.useCallback(async (eventId?: string, categoryId?: string) => {
     try {
-      const res = await AdminService.getDashboardStats();
+      const res = await AdminService.getDashboardStats(eventId, categoryId);
       if (res) {
         const statsData = (res as any).data || res;
         setDashboardStats(statsData);

@@ -112,16 +112,21 @@ const Finance = () => {
   };
 
   return (
-    <div className="finance-dashboard" style={{ animation: 'fadeIn 0.8s ease-out', padding: '40px', color: '#fff' }}>
+    <div className="finance-dashboard" style={{ animation: 'fadeIn 0.8s ease-out', padding: '40px', color: '#fff', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <Toaster position="top-right" />
       
       {/* Header Section */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px' }}>
-        <div>
-          <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '4px', color: '#fff' }}>
-            Financial Hub
-          </h2>
-          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px' }}>Automated reconciliation & real-time settlement tracking</p>
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', background: 'rgba(255,255,255,0.02)', padding: '15px 20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ background: 'var(--accent-primary)', padding: '8px', borderRadius: '10px', display: 'flex' }}>
+             <DollarSign size={18} color="#fff" />
+          </div>
+          <div>
+            <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#fff' }}>
+              Financial Hub
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '2px 0 0 0', fontWeight: 500 }}>Automated reconciliation & real-time settlement tracking</p>
+          </div>
         </div>
         
         <div style={{ display: 'flex', gap: '1rem' }}>
@@ -157,21 +162,16 @@ const Finance = () => {
       </div>
 
       {/* Stats Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem' }}>
         {stats.map((stat, idx) => (
-          <div key={idx} className="glass-panel" style={{ 
-            padding: '1.25rem', borderRadius: '16px', background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.05)', position: 'relative', overflow: 'hidden'
-          }}>
-            <div style={{ position: 'absolute', top: '-10px', right: '-10px', opacity: 0.1 }}>
-              <stat.icon size={100} color={stat.color} />
-            </div>
-            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.75rem' }}>{stat.label}</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.25rem' }}>{stat.value}</div>
-            <div style={{ fontSize: '0.9rem', color: stat.color, fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <span style={{ padding: '2px 8px', borderRadius: '6px', background: `${stat.color}15` }}>{stat.trend}</span>
-            </div>
-          </div>
+           <div key={idx} className="nav-card" style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.02)', borderRadius: '16px', border: `1px solid ${stat.color}20` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                 <stat.icon size={18} color={stat.color} />
+                 <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>{stat.label}</span>
+              </div>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: '#fff' }}>{stat.value}</div>
+              <p style={{ fontSize: '11px', color: stat.color, marginTop: '6px', fontWeight: 600 }}>{stat.trend}</p>
+           </div>
         ))}
       </div>
 
@@ -182,7 +182,7 @@ const Finance = () => {
       }}>
         {/* Table Toolbar */}
         <div style={{ padding: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Ledger Activity</h3>
+            <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: 0 }}>Ledger Activity</h3>
             
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                 {/* Search Input */}

@@ -52,9 +52,16 @@ const Settings = () => {
 
   return (
     <div className="dashboard-content" style={{ animation: 'fadeInUp 0.6s ease forwards' }}>
-      <div style={{ marginBottom: '20px' }}>
-        <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '4px' }}>Platform Settings</h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Configure global settings for the TicketLiv backend and Mobile Application.</p>
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', background: 'rgba(255,255,255,0.02)', padding: '15px 20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ background: 'var(--accent-primary)', padding: '8px', borderRadius: '10px', display: 'flex' }}>
+             <Shield size={18} color="#fff" />
+          </div>
+          <div>
+            <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#fff' }}>Platform Settings</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '2px 0 0 0', fontWeight: 500 }}>Configure global settings for the TicketLiv backend and Mobile Application.</p>
+          </div>
+        </div>
       </div>
 
       {status && (
@@ -77,7 +84,7 @@ const Settings = () => {
 
       <div className="dashboard-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
         <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-           <h3 style={{ fontSize: '16px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}><Smartphone size={18} className="text-pink-400" /> Mobile App Controls</h3>
+           <h3 style={{ fontSize: '18px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}><Smartphone size={18} className="text-pink-400" /> Mobile App Controls</h3>
            
            <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px' }}>
              <div>
@@ -93,7 +100,7 @@ const Settings = () => {
         </div>
 
         <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-           <h3 style={{ fontSize: '16px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}><Shield size={18} className="text-indigo-400" /> Security & Profile</h3>
+           <h3 style={{ fontSize: '18px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}><Shield size={18} className="text-indigo-400" /> Security & Profile</h3>
            
            <div className="form-group">
              <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: 'var(--text-secondary)' }}>Admin Email</label>

@@ -186,10 +186,15 @@ const Attendees = () => {
 
   return (
     <div className="attendees-container">
-      <div className="page-header">
-        <div>
-          <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '4px' }}>Booking User Details</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>View and search detailed attendee information for all ticket bookings.</p>
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', background: 'rgba(255,255,255,0.02)', padding: '15px 20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ background: 'var(--accent-primary)', padding: '8px', borderRadius: '10px', display: 'flex' }}>
+             <Tag size={18} color="#fff" />
+          </div>
+          <div>
+            <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#fff' }}>Booking User Details</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '2px 0 0 0', fontWeight: 500 }}>View and search detailed attendee information for all ticket bookings.</p>
+          </div>
         </div>
         
         <div className="header-actions">

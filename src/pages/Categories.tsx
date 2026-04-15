@@ -4,9 +4,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useApp } from '../context/AppContext';
+import './Categories.css';
 import type { Category } from '../context/AppContext';
-
-
 
 const Categories = () => {
   const { categories, addCategory, updateCategory, deleteCategory, events, refreshEvents } = useApp();
@@ -24,8 +23,7 @@ const Categories = () => {
 
   // Form State
   const [formData, setFormData] = useState({
-    name: '',
-    status: 'Active' as 'Active' | 'Inactive'
+    name: ''
   });
 
   const filteredCategories = categories.filter(cat => {
@@ -36,23 +34,27 @@ const Categories = () => {
     if (cat.name.toLowerCase().includes(q)) return true;
 
     // 2. Mapped Event Match  
-    const mappedEvents = events.filter(e => e.categoryIds?.includes(cat.id));
+    const currentCatId = String(cat.id || '');
+    const mappedEvents = events.filter(e => {
+        const eCatId = String(e.category_id || '');
+        const inArray = e.categoryIds?.map(String).includes(currentCatId);
+        return eCatId === currentCatId || inArray;
+    });
     return mappedEvents.some(evt =>
-      evt.title.toLowerCase().includes(q)
+      evt.title?.toLowerCase().includes(q)
     );
   });
 
   const handleOpenCreate = () => {
     setEditingId(null);
-    setFormData({ name: '', status: 'Active' });
+    setFormData({ name: '' });
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (cat: Category) => {
     setEditingId(cat.id);
     setFormData({
-      name: cat.name,
-      status: cat.status
+      name: cat.name
     });
     setIsModalOpen(true);
   };
@@ -70,7 +72,6 @@ const Categories = () => {
       toast.error('Failed to delete category.');
     }
   };
-
 
 
   const handleSave = async () => {
@@ -107,399 +108,399 @@ const Categories = () => {
   };
 
   return (
-    <div className="dashboard-content" style={{ animation: 'fadeInUp 0.6s ease forwards' }}>
+    <>
+      <div className="dashboard-content" style={{ animation: 'fadeInUp 0.6s ease forwards' }}>
 
-      {/* Header & Controls */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
-        <div>
-          <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '4px' }}>Event Categories</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>Organize your events into collections that make it easy for users to find what they are looking for.</p>
-        </div>
-
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: '8px',
-            background: 'rgba(255,255,255,0.05)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '16px',
-            padding: '7px 14px',
-            width: '240px',
-            transition: 'border-color 0.2s',
-          }}>
-            <Search size={14} color="var(--text-muted)" />
-            <input
-              type="text"
-              placeholder="Search categories & events..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'white',
-                fontSize: '13px',
-                width: '100%',
-                outline: 'none'
-              }}
-            />
-          </div>
-          <button
-            className="icon-btn hover-scale"
-            onClick={handleOpenCreate}
-            style={{ width: 'auto', padding: '0 16px', borderRadius: '10px', gap: '6px', background: 'var(--accent-primary)', color: 'white', border: 'none', boxShadow: '0 4px 16px var(--glow-primary)', fontSize: '13px' }}
-          >
-            <Plus size={16} /> New Category
-          </button>
-        </div>
-      </div>
-
-      {/* Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '10px' }}>
-        {filteredCategories.map(cat => {
-          const isDeleting = deleteConfirmId === cat.id;
-          return (
-            <div
-              key={cat.id}
-              className="glass-panel hover-card"
-              style={{
-                padding: '10px 16px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: '10px',
-                transition: 'all 0.3s ease',
-                borderColor: isDeleting ? 'rgba(244,63,94,0.3)' : undefined
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-                <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: cat.status === 'Active' ? '#10b981' : '#6b7280', flexShrink: 0 }} />
-                <h3 style={{ fontSize: '13px', fontWeight: 600, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textTransform: 'capitalize' }}>{cat.name}</h3>
-              </div>
-
-              {isDeleting ? (
-                <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-                  <button
-                    onClick={() => setDeleteConfirmId(null)}
-                    style={{
-                      background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px',
-                      padding: '5px 12px', color: 'white', fontSize: '11px', fontWeight: 600,
-                      cursor: 'pointer', transition: 'all 0.2s'
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => confirmDelete(cat.id)}
-                    style={{
-                      background: '#f43f5e', border: 'none', borderRadius: '8px',
-                      padding: '5px 12px', color: 'white', fontSize: '11px', fontWeight: 700,
-                      cursor: 'pointer', boxShadow: '0 4px 12px rgba(244,63,94,0.3)',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    Delete
-                  </button>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-                  <button
-                    onClick={() => handleOpenEdit(cat)}
-                    style={{
-                      background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: '8px',
-                      width: '30px', height: '30px', color: 'white',
-                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s'
-                    }}
-                  >
-                    <Edit2 size={14} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(cat.id)}
-                    style={{
-                      background: 'rgba(244,63,94,0.1)', border: 'none', borderRadius: '8px',
-                      width: '30px', height: '30px', color: '#f43f5e',
-                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s'
-                    }}
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              )}
+        {/* Header & Controls */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', background: 'rgba(255,255,255,0.02)', padding: '15px 20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ background: 'var(--accent-primary)', padding: '8px', borderRadius: '10px', display: 'flex' }}>
+               <AlertTriangle size={18} color="#fff" />
             </div>
-          );
-        })}
-      </div>
-
-      {/* All Categories Overview */}
-      <div style={{
-        marginTop: '40px',
-        padding: '24px',
-        background: 'rgba(255,255,255,0.02)',
-        borderRadius: '20px',
-        border: '1px solid rgba(255,255,255,0.05)',
-        position: 'relative',
-        overflow: 'hidden'
-      }}>
-        {/* Decorative background glow */}
-        <div style={{ position: 'absolute', top: '-100px', right: '-100px', width: '300px', height: '300px', background: 'radial-gradient(circle, rgba(99, 102, 241, 0.05) 0%, transparent 70%)', zIndex: 0 }} />
-
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <div>
-              <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'white', marginBottom: '4px' }}>All Categories</h3>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>A quick view of all group sections available on the TicketLiv mobile application home screen.</p>
-            </div>
-            <div style={{ fontSize: '9px', fontWeight: 800, color: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.08)', padding: '3px 8px', borderRadius: '14px', textTransform: 'uppercase' }}>
-              Mobile App Sections
+              <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#fff' }}>Event Categories</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '2px 0 0 0', fontWeight: 500 }}>Organize your events into collections that make it easy for users to find what they are looking for.</p>
             </div>
           </div>
 
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
-            gap: '8px'
-          }}>
-            {categories.map(cat => (
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: '16px',
+              padding: '7px 14px',
+              width: '240px',
+              transition: 'border-color 0.2s',
+            }}>
+              <Search size={14} color="var(--text-muted)" />
+              <input
+                type="text"
+                placeholder="Search categories & events..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'white',
+                  fontSize: '13px',
+                  width: '100%',
+                  outline: 'none'
+                }}
+              />
+            </div>
+            <button
+              className="icon-btn hover-scale"
+              onClick={handleOpenCreate}
+              style={{ width: 'auto', padding: '0 16px', borderRadius: '10px', gap: '6px', background: 'var(--accent-primary)', color: 'white', border: 'none', boxShadow: '0 4px 16px var(--glow-primary)', fontSize: '13px' }}
+            >
+              <Plus size={16} /> New Category
+            </button>
+          </div>
+        </div>
+
+        {/* Grid */}
+        <div className="categories-grid">
+          {filteredCategories.map(cat => {
+            const isDeleting = deleteConfirmId === cat.id;
+            return (
               <div
                 key={cat.id}
-                className="hover-scale"
-                style={{
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  color: 'rgba(255,255,255,0.45)',
-                  background: 'rgba(255,255,255,0.02)',
-                  padding: '9px 14px',
-                  borderRadius: '10px',
-                  border: '1px solid rgba(255,255,255,0.05)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                  cursor: 'default',
-                  textAlign: 'center'
-                }}
-                onMouseOver={e => {
-                  e.currentTarget.style.color = 'white';
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
-                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)';
-                  e.currentTarget.style.boxShadow = '0 10px 20px rgba(0,0,0,0.2)';
-                }}
-                onMouseOut={e => {
-                  e.currentTarget.style.color = 'rgba(255,255,255,0.45)';
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
-                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)';
-                  e.currentTarget.style.boxShadow = 'none';
+                className="category-card"
+                style={{ 
+                  borderColor: isDeleting ? 'rgba(244,63,94,0.4)' : 'rgba(255,255,255,0.06)' 
                 }}
               >
-                {cat.name}
+                <div style={{ position: 'absolute', top: 0, right: 0, padding: '10px' }}>
+                   <div style={{ 
+                     fontSize: '10px', 
+                     fontWeight: 800, 
+                     textTransform: 'uppercase', 
+                     letterSpacing: '0.05em',
+                     padding: '4px 8px',
+                     borderRadius: '6px',
+                     background: cat.status === 'Active' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(156, 163, 175, 0.1)',
+                     color: cat.status === 'Active' ? '#10b981' : '#9ca3af',
+                     border: `1px solid ${cat.status === 'Active' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(156, 163, 175, 0.2)'}`
+                   }}>
+                     {cat.status}
+                   </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                  <div className="category-icon-box">
+                    <Search size={22} />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'white', margin: 0 }}>{cat.name}</h3>
+                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
+                      {events.filter(e => {
+                          const eCatId = String(e.category_id || '');
+                          const currentCatId = String(cat.id || '');
+                          const inArray = e.categoryIds?.map(String).includes(currentCatId);
+                          return eCatId === currentCatId || inArray;
+                      }).length} Active Events
+                    </p>
+                  </div>
+                </div>
+
+                {isDeleting ? (
+                  <div className="inline-confirm">
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: '#f43f5e', marginRight: '10px' }}>Sure?</span>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button className="inline-btn-yes" onClick={() => confirmDelete(cat.id)}>Yes</button>
+                      <button className="inline-btn-no" onClick={() => setDeleteConfirmId(null)}>No</button>
+                    </div>
+                  </div>
+                ) : (
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                      <button
+                        onClick={() => handleOpenEdit(cat)}
+                        style={{
+                          flex: 1,
+                          background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          borderRadius: '10px',
+                          padding: '8px',
+                          color: 'white',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        <Edit2 size={14} /> Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(cat.id)}
+                        style={{
+                          flex: 1,
+                          background: 'rgba(244, 63, 94, 0.08)',
+                          border: '1px solid rgba(244, 63, 94, 0.15)',
+                          borderRadius: '10px',
+                          padding: '8px',
+                          color: '#f43f5e',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        <Trash2 size={14} /> Delete
+                      </button>
+                    </div>
+                )}
               </div>
-            ))}
+            );
+          })}
+        </div>
+
+        {/* All Categories Overview */}
+        <div style={{
+          padding: '24px',
+          background: 'rgba(255,255,255,0.01)',
+          borderRadius: '24px',
+          border: '1px solid rgba(255,255,255,0.05)',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          {/* Decorative background glow */}
+          <div style={{ position: 'absolute', top: '-10% ', right: '-5%', width: '400px', height: '400px', background: 'radial-gradient(circle, rgba(99, 102, 241, 0.08) 0%, transparent 70%)', zIndex: 0 }} />
+          <div style={{ position: 'absolute', bottom: '-10% ', left: '-5%', width: '300px', height: '300px', background: 'radial-gradient(circle, rgba(236, 72, 153, 0.04) 0%, transparent 70%)', zIndex: 0 }} />
+
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+              <div>
+                <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'white', marginBottom: '4px' }}>All Categories</h3>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>A quick view of all group sections available on the TicketLiv mobile application home screen.</p>
+              </div>
+              <div style={{ fontSize: '9px', fontWeight: 800, color: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.08)', padding: '3px 8px', borderRadius: '14px', textTransform: 'uppercase' }}>
+                Mobile App Sections
+              </div>
+            </div>
+
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '12px'
+            }}>
+              {categories.map(cat => (
+                <div
+                  key={cat.id}
+                  className="hover-scale"
+                  style={{
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: 'rgba(255,255,255,0.6)',
+                    background: 'rgba(255,255,255,0.03)',
+                    padding: '10px 18px',
+                    borderRadius: '100px',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                    cursor: 'default',
+                    textAlign: 'center'
+                  }}
+                  onMouseOver={e => {
+                    e.currentTarget.style.color = 'white';
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)';
+                    e.currentTarget.style.boxShadow = '0 10px 20px rgba(0,0,0,0.2)';
+                  }}
+                  onMouseOut={e => {
+                    e.currentTarget.style.color = 'rgba(255,255,255,0.45)';
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                     <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--accent-primary)' }} />
+                     {cat.name}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ marginTop: '36px', animation: 'fadeInUp 0.8s ease forwards' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+            <div style={{ 
+              width: '38px', 
+              height: '38px', 
+              borderRadius: '12px', 
+              background: 'rgba(99, 102, 241, 0.1)', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              color: '#818cf8',
+              border: '1px solid rgba(99, 102, 241, 0.2)'
+            }}>
+              <Search size={18} />
+            </div>
+            <div>
+              <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'white', margin: 0 }}>Events Under Each Category</h3>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '2px 0 0 0' }}>Detailed mapping of events assigned to specific app sections.</p>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '24px' }}>
+            {(() => {
+              const activeCategories = categories.filter(cat => {
+                const categoryEvents = events.filter(e => {
+                  const eCatId = String(e.category_id || '');
+                  const currentCatId = String(cat.id || '');
+                  const inArray = e.categoryIds?.map(String).includes(currentCatId);
+                  return eCatId === currentCatId || inArray;
+                });
+                return categoryEvents.length > 0;
+              });
+
+              if (activeCategories.length === 0) {
+                return (
+                  <div className="glass-panel" style={{ padding: '60px', textAlign: 'center', gridColumn: '1 / -1' }}>
+                    <AlertTriangle size={32} color="var(--text-muted)" style={{ marginBottom: '16px', opacity: 0.3 }} />
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '15px', fontWeight: 600 }}>No active category mappings found.</p>
+                    <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '13px' }}>Events must be assigned to categories in the Event Creation portal.</p>
+                  </div>
+                );
+              }
+
+              return activeCategories.map(cat => {
+                const categoryEvents = events.filter(e => {
+                  const eCatId = String(e.category_id || '');
+                  const currentCatId = String(cat.id || '');
+                  const inArray = e.categoryIds?.map(String).includes(currentCatId);
+                  return eCatId === currentCatId || inArray;
+                }).sort((a, b) => new Date(b.created_at || b.date || 0).getTime() - new Date(a.created_at || a.date || 0).getTime());
+
+                const totalRevenue = categoryEvents.reduce((acc, e) => acc + (e.revenue || 0), 0);
+                const totalSales = categoryEvents.reduce((acc, e) => acc + (e.sales || 0), 0);
+
+                return (
+                  <div key={cat.id} className="glass-panel hover-scale" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                        <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '20px', fontWeight: 800, boxShadow: '0 8px 16px var(--glow-primary)' }}>
+                          {cat.name ? cat.name.charAt(0).toUpperCase() : '?'}
+                        </div>
+                        <div>
+                          <h4 style={{ fontSize: '18px', fontWeight: 800, color: 'white', margin: 0 }}>{cat.name}</h4>
+                          <span style={{ fontSize: '12px', color: '#818cf8', fontWeight: 600 }}>{categoryEvents.length} Matched Events</span>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--accent-primary)' }}>₹{totalRevenue.toLocaleString()}</div>
+                        <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', fontWeight: 700, textTransform: 'uppercase' }}>Total Category Revenue</div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                       <div>
+                         <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Sold Tickets</div>
+                         <div style={{ fontSize: '14px', fontWeight: 700, color: 'white' }}>{totalSales.toLocaleString()}</div>
+                       </div>
+                       <div style={{ textAlign: 'right' }}>
+                         <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Avg Growth</div>
+                         <div style={{ fontSize: '14px', fontWeight: 700, color: '#10b981' }}>+12.4%</div>
+                       </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Recent Event Activity</div>
+                      {categoryEvents.slice(0, 3).map((evt, idx) => (
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '10px' }}>
+                          <span style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(255,255,255,0.85)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}>{evt.title}</span>
+                          <span style={{ fontSize: '9px', fontWeight: 800, color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 8px', borderRadius: '100px', border: '1px solid rgba(16, 185, 129, 0.2)', textTransform: 'uppercase' }}>{evt.status || 'Live'}</span>
+                        </div>
+                      ))}
+                      {categoryEvents.length > 3 && (
+                        <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', paddingTop: '4px' }}>
+                          Viewing 3 of {categoryEvents.length} events
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              });
+            })()}
           </div>
         </div>
       </div>
 
-
-      {/* Creation / Edit Modal Overlay */}
+      {/* Creation / Edit Modal Overlay - OUTSIDE dashboard-content to prevent stacking context constraints */}
       {isModalOpen && (
-        <div
-          onClick={() => setIsModalOpen(false)}
-          style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            background: 'rgba(10, 10, 15, 0.85)', backdropFilter: 'blur(10px)',
-            display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-            zIndex: 1000, animation: 'fadeIn 0.3s ease forwards',
-            padding: '20px',
-            paddingTop: '4vh'
-          }}
-        >
-          <div
-            className="glass-panel"
-            onClick={e => e.stopPropagation()}
-            style={{
-              width: '100%',
-              maxWidth: '460px',
-              padding: '28px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '20px',
-              position: 'relative',
-              boxShadow: '0 24px 48px rgba(0,0,0,0.4)',
-              animation: 'slideUp 0.3s ease-out'
-            }}
-          >
-
+        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
             <button
               onClick={() => setIsModalOpen(false)}
               style={{
-                position: 'absolute', top: '20px', right: '20px',
-                background: 'rgba(255,255,255,0.05)', border: 'none',
-                borderRadius: '50%', width: '30px', height: '30px',
-                color: 'var(--text-muted)', cursor: 'pointer',
+                position: 'absolute', top: '24px', right: '24px',
+                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '12px', width: '36px', height: '36px',
+                color: 'white', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
+                zIndex: 10,
                 transition: 'all 0.2s'
               }}
-              onMouseOver={e => e.currentTarget.style.color = 'white'}
-              onMouseOut={e => e.currentTarget.style.color = 'var(--text-muted)'}
+              onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+              onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
             >
-              <X size={18} />
+              <X size={20} />
             </button>
 
             <div>
-              <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '4px', color: 'white' }}>
-                {editingId ? 'Edit Category' : 'Add New Category'}
+              <h2 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '8px', color: 'white' }}>
+                {editingId ? 'Edit Category' : 'New Category'}
               </h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>Create or update category names to improve event discovery on the mobile platform.</p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0, lineHeight: 1.5 }}>
+                Configure categorical discovery rules for the live app.
+              </p>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '12px' }}>
               <div className="form-group">
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Category Name</label>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Category Name</label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="e.g. Sports"
                   autoFocus
-                  style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', padding: '10px 14px', borderRadius: '10px', color: 'white', fontSize: '14px', textTransform: 'capitalize' }}
+                  style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', padding: '14px', borderRadius: '12px', color: 'white', fontSize: '15px' }}
                 />
               </div>
+
+              <button
+                onClick={handleSave}
+                style={{
+                  width: '100%', padding: '16px', borderRadius: '14px',
+                  background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-tertiary))',
+                  color: 'white', border: 'none', fontWeight: 800, fontSize: '15px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                  cursor: 'pointer', boxShadow: '0 8px 30px var(--glow-primary)', marginTop: '10px'
+                }}
+              >
+                <Save size={18} /> {editingId ? 'Save Changes' : 'Publish Category'}
+              </button>
             </div>
-
-            <button
-              onClick={handleSave}
-              className="hover-scale"
-              style={{
-                width: '100%', padding: '13px', borderRadius: '10px',
-                background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-tertiary))',
-                color: 'white', border: 'none', fontWeight: 700, fontSize: '14px',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                cursor: 'pointer', boxShadow: '0 8px 20px var(--glow-primary)', marginTop: '4px'
-              }}
-            >
-              <Save size={16} /> {editingId ? 'Save Changes' : 'Create Category'}
-            </button>
-
           </div>
         </div>
       )}
-
-
-
-      {/* Category Distribution & Status Section */}
-      <div style={{ marginTop: '36px', animation: 'fadeInUp 0.8s ease forwards' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '12px' }}>
-          <div style={{ width: '34px', height: '34px', borderRadius: '10px', background: 'rgba(99, 102, 241, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#818cf8' }}>
-            <Plus size={16} />
-          </div>
-          <div>
-            <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'white' }}>Events Under Each Category</h3>
-          </div>
-        </div>
-
-        <div className="glass-panel" style={{ padding: '0', overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.5fr 2.5fr 0.8fr', padding: '10px 20px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-            <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Category</span>
-            <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center' }}>Qty</span>
-            <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Event Names</span>
-            <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center' }}>Status</span>
-          </div>
-
-          <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
-            {(() => {
-              // Only show categories that have events
-              const activeCategories = categories.filter(cat => {
-                const categoryEvents = events.filter(e =>
-                  e.category_id === cat.id || (e.categoryIds && e.categoryIds.includes(cat.id))
-                );
-                return categoryEvents.length > 0;
-              });
-
-              if (activeCategories.length === 0) {
-                return (
-                  <div style={{ padding: '40px', textAlign: 'center' }}>
-                    <AlertTriangle size={26} color="var(--text-muted)" style={{ marginBottom: '12px', opacity: 0.3 }} />
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>No active assignments found. Categories only appear here once events are mapped to them.</p>
-                  </div>
-                );
-              }
-
-              return activeCategories.map(cat => {
-                const categoryEvents = events.filter(e =>
-                  e.category_id === cat.id || (e.categoryIds && e.categoryIds.includes(cat.id))
-                );
-
-                return (
-                  <div
-                    key={cat.id}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '1.2fr 0.5fr 2.5fr 0.8fr',
-                      padding: '10px 20px',
-                      borderBottom: '1px solid rgba(255,255,255,0.03)',
-                      alignItems: 'start',
-                      transition: 'background 0.2s'
-                    }}
-                    onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.015)'}
-                    onMouseOut={e => e.currentTarget.style.background = 'transparent'}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'var(--accent-primary)', boxShadow: '0 0 8px var(--glow-primary)' }} />
-                      <span style={{ fontSize: '12px', fontWeight: 600, color: 'white', textTransform: 'capitalize' }}>{cat.name}</span>
-                    </div>
-
-                    <div style={{ textAlign: 'center' }}>
-                      <span style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.03)', padding: '2px 6px', borderRadius: '5px' }}>
-                        {categoryEvents.length}
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {categoryEvents.map((evt, idx) => (
-                        <span key={idx} style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.85)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {evt.title}
-                        </span>
-                      ))}
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
-                      {categoryEvents.map((evt, idx) => {
-                        const status = evt.status || 'Live';
-                        const isCancelled = status === 'Cancelled';
-                        const isCompleted = status === 'Completed';
-                        return (
-                          <span
-                            key={idx}
-                            style={{
-                              fontSize: '9px',
-                              fontWeight: 800,
-                              color: isCancelled ? '#f43f5e' : (isCompleted ? '#3b82f6' : '#10b981'),
-                              background: isCancelled ? 'rgba(244, 63, 94, 0.1)' : (isCompleted ? 'rgba(59, 130, 246, 0.1)' : 'rgba(16, 185, 129, 0.1)'),
-                              padding: '1px 7px',
-                              borderRadius: '100px',
-                              textTransform: 'uppercase',
-                              border: `1px solid ${isCancelled ? 'rgba(244, 63, 94, 0.2)' : (isCompleted ? 'rgba(59, 130, 246, 0.2)' : 'rgba(16, 185, 129, 0.2)')}`,
-                              letterSpacing: '0.04em'
-                            }}
-                          >
-                            {status}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              });
-            })()}
-
-            {categories.length === 0 && (
-              <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                No category data available to display statistics.
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-    </div>
+    </>
   );
+
 };
 
 export default Categories;

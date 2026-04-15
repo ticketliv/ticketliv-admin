@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheck, Users, CalendarClock, ScanLine, Activity, Search, CheckCircle, XCircle, Trash2, Plus, Edit2, Lock } from 'lucide-react';
+import { ShieldCheck, Users, CalendarClock, ScanLine, Activity, Search, CheckCircle, XCircle, Trash2, Plus, Edit2, Lock, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import './AdminControl.css';
 import { ALL_ADMIN_ROUTES, DEFAULT_ROLE_PERMISSIONS, type PermissionRoute, useApp, type AdminUser } from '../context/AppContext';
@@ -21,10 +21,10 @@ interface AuditLog {
 const AdminControl = () => {
   const [activeTab, setActiveTab] = useState<'users' | 'publishing' | 'scanners' | 'audit'>('publishing');
 
-  const { 
-    adminUsers: users, 
-    addAdminUser, 
-    updateAdminUser, 
+  const {
+    adminUsers: users,
+    addAdminUser,
+    updateAdminUser,
     deleteAdminUser,
     currentAdminUser,
     pendingEvents: events,
@@ -46,12 +46,8 @@ const AdminControl = () => {
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'Admin' as UserRole, permissions: [...DEFAULT_ROLE_PERMISSIONS['Admin']] as PermissionRoute[] });
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
   const [newAssignment, setNewAssignment] = useState({ scannerId: '', eventId: '', eventTitle: '' });
-  
-  const [confirmDeleteModal, setConfirmDeleteModal] = useState<{ isOpen: boolean; userId: string; userName: string }>({
-    isOpen: false,
-    userId: '',
-    userName: ''
-  });
+
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
 
   // ----------------------------------------
   // Handlers
@@ -93,7 +89,7 @@ const AdminControl = () => {
       toast.error('Failed to approve event');
     }
   };
-  
+
   const handleRejectEvent = async (id: string) => {
     try {
       await rejectAdminEvent(id);
@@ -113,22 +109,14 @@ const AdminControl = () => {
     }
   };
 
-  const handleDeleteClick = (user: AdminUser) => {
-    setConfirmDeleteModal({
-      isOpen: true,
-      userId: user.id,
-      userName: user.name
-    });
-  };
-
-  const confirmHardDelete = async () => {
-    if (!confirmDeleteModal.userId) return;
+  const confirmHardDelete = async (id: string) => {
+    if (!id) return;
     try {
-      await deleteAdminUser(confirmDeleteModal.userId);
+      await deleteAdminUser(id);
       toast.success('User permanently deleted');
-      setConfirmDeleteModal({ isOpen: false, userId: '', userName: '' });
+      setDeletingUserId(null);
     } catch (e) {
-       toast.error('Failed to delete user');
+      toast.error('Failed to delete user');
     }
   };
 
@@ -152,7 +140,7 @@ const AdminControl = () => {
       permissions: newUser.permissions,
       status: 'Active',
     };
-    
+
     try {
       await addAdminUser(createdUser);
       setLogs([{
@@ -192,18 +180,18 @@ const AdminControl = () => {
       toast.error('Please select both scanner and event');
       return;
     }
-    
+
     try {
       // Find event ID if typing title? For now let's assume eventTitle is ID or title
       // In a real system we'd have a dropdown for events too.
       // Let's assume the user enters the event ID or we find it.
       await assignAdminScanner(newAssignment.scannerId, newAssignment.eventId || newAssignment.eventTitle);
-      
+
       setIsAssignScannerModalOpen(false);
       setNewAssignment({ scannerId: '', eventId: '', eventTitle: '' });
       toast.success('Scanner successfully assigned to event!');
     } catch (error) {
-       toast.error('Failed to assign scanner');
+      toast.error('Failed to assign scanner');
     }
   };
 
@@ -227,10 +215,15 @@ const AdminControl = () => {
 
   return (
     <div className="admin-control-container">
-      <div className="ac-header">
-        <div>
-          <h2><ShieldCheck size={24} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '12px', color: '#818cf8' }} />Admin Control Center</h2>
-          <p>Centralized hub for role management, scanner assignments, and publishing workflows.</p>
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', background: 'rgba(255,255,255,0.02)', padding: '15px 20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ background: 'var(--accent-primary)', padding: '8px', borderRadius: '10px', display: 'flex' }}>
+            <ShieldCheck size={18} color="#fff" />
+          </div>
+          <div>
+            <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#fff' }}>Admin Control Center</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '2px 0 0 0', fontWeight: 500 }}>Centralized hub for role management, scanner assignments, and publishing workflows.</p>
+          </div>
         </div>
       </div>
 
@@ -316,7 +309,7 @@ const AdminControl = () => {
           <div>
             <div className="ac-list-header">
               <h3 style={{ fontSize: '16px', fontWeight: 600 }}>System Users</h3>
-              <div style={{ display: 'flex', gap: '12px' }}>
+              <div style={{ display: 'flex', gap: '20px' }}>
                 <div className="ac-search-box" style={{ width: '280px' }}>
                   <Search size={18} className="ac-search-icon" />
                   <input type="text" placeholder="Search users..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
@@ -335,7 +328,7 @@ const AdminControl = () => {
                     <th>Role</th>
                     <th>Created</th>
                     <th>Status</th>
-                    <th style={{ textAlign: 'right' }}>Action</th>
+                    <th style={{ textAlign: 'right', width: '220px' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -352,28 +345,40 @@ const AdminControl = () => {
                       </td>
                       <td>
                         <div className="ac-actions">
-                          <button className="ac-btn-icon" title="Edit" onClick={() => handleEditUserClick(user)}><Edit2 size={16} /></button>
-                          
-                          {/* Status Toggle */}
-                          <button 
-                            className={`ac-btn-icon ${user.status === 'Active' ? 'ac-btn-reject' : 'ac-btn-approve'}`} 
-                            onClick={() => handleToggleStatus(user)} 
-                            title={user.status === 'Active' ? 'Deactivate' : 'Activate'}
-                            disabled={user.id === currentAdminUser?.id}
-                          >
-                            {user.status === 'Active' ? <XCircle size={16} /> : <CheckCircle size={16} />}
-                          </button>
-
-                          {/* Permanent Delete */}
-                          <button 
-                            className="ac-btn-icon" 
-                            style={{ background: 'rgba(244, 63, 94, 0.05)', color: '#f43f5e' }}
-                            onClick={() => handleDeleteClick(user)} 
-                            title="Delete Permanently"
-                            disabled={user.id === currentAdminUser?.id}
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                          {deletingUserId === user.id ? (
+                            <div className="inline-confirm">
+                               <span style={{ fontSize: '11px', fontWeight: 600, color: '#f43f5e', marginRight: '8px' }}>Sure?</span>
+                               <div style={{ display: 'flex', gap: '4px' }}>
+                                  <button className="inline-btn-yes" onClick={() => confirmHardDelete(user.id)}>Yes</button>
+                                  <button className="inline-btn-no" onClick={() => setDeletingUserId(null)}>No</button>
+                               </div>
+                            </div>
+                          ) : (
+                            <>
+                              <button className="ac-btn-icon" title="Edit" onClick={() => handleEditUserClick(user)}><Edit2 size={16} /></button>
+    
+                              {/* Status Toggle */}
+                              <button
+                                className={`ac-btn-icon ${user.status === 'Active' ? 'ac-btn-reject' : 'ac-btn-approve'}`}
+                                onClick={() => handleToggleStatus(user)}
+                                title={user.status === 'Active' ? 'Deactivate' : 'Activate'}
+                                disabled={user.id === currentAdminUser?.id}
+                              >
+                                {user.status === 'Active' ? <XCircle size={16} /> : <CheckCircle size={16} />}
+                              </button>
+    
+                              {/* Permanent Delete */}
+                              <button
+                                className="ac-btn-icon"
+                                style={{ background: 'rgba(244, 63, 94, 0.05)', color: '#f43f5e' }}
+                                onClick={() => setDeletingUserId(user.id)}
+                                title="Delete Permanently"
+                                disabled={user.id === currentAdminUser?.id}
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -484,8 +489,8 @@ const AdminControl = () => {
 
       {/* Add User Modal */}
       {isAddUserModalOpen && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '720px', padding: '24px', borderRadius: '24px', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'grid', placeItems: 'center', padding: '20px', backdropFilter: 'blur(10px)', overflow: 'hidden' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '780px', padding: '28px 32px', borderRadius: '24px', position: 'relative', background: 'rgba(23, 23, 33, 0.98)', border: '1px solid rgba(255, 255, 255, 0.12)', boxShadow: '0 30px 100px rgba(0,0,0,0.8)', overflow: 'hidden' }}>
             <button
               onClick={() => setIsAddUserModalOpen(false)}
               style={{ position: 'absolute', top: '24px', right: '24px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
@@ -493,71 +498,78 @@ const AdminControl = () => {
               <XCircle size={24} />
             </button>
 
-            <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'white', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}><Users size={18} color="var(--primary-color)" /> Add New System User</h3>
+            <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'white', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ background: 'var(--accent-primary)', padding: '10px', borderRadius: '12px', display: 'flex' }}>
+                <Users size={20} color="white" />
+              </div>
+              Create System User
+            </h3>
 
             <form onSubmit={handleCreateUser}>
-              <div className="ac-form-group">
-                <label>Full Name</label>
-                <input
-                  type="text"
-                  required
-                  className="ac-input"
-                  placeholder="e.g. John Doe"
-                  value={newUser.name}
-                  onChange={e => setNewUser({ ...newUser, name: e.target.value })}
-                />
-              </div>
-              <div className="ac-form-group">
-                <label>Email Address / Username</label>
-                <input
-                  type="email"
-                  required
-                  className="ac-input"
-                  placeholder="john@ticketliv.com"
-                  value={newUser.email}
-                  onChange={e => setNewUser({ ...newUser, email: e.target.value })}
-                />
-              </div>
-              <div className="ac-form-group">
-                <label>Temporary Password</label>
-                <input
-                  type="text"
-                  required
-                  className="ac-input"
-                  placeholder="Enter a secure password..."
-                  value={newUser.password}
-                  onChange={e => setNewUser({ ...newUser, password: e.target.value })}
-                />
-              </div>
-              <div className="ac-form-group">
-                <label>System Role</label>
-                <select
-                  className="ac-input"
-                  value={newUser.role}
-                  onChange={e => handleRoleChange(e.target.value as UserRole, false)}
-                >
-                  <option value="Super Admin">Super Admin (Full Access)</option>
-                  <option value="Admin">Admin (Standard)</option>
-                  <option value="Manager">Manager (Operations)</option>
-                  <option value="Event Organizer">Event Organizer (Restricted)</option>
-                  <option value="Scanner User">Scanner User (Mobile Only)</option>
-                </select>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                <div className="ac-form-group" style={{ marginBottom: 0 }}>
+                  <label>Full Name</label>
+                  <input
+                    type="text"
+                    required
+                    className="ac-input"
+                    placeholder="e.g. John Doe"
+                    value={newUser.name}
+                    onChange={e => setNewUser({ ...newUser, name: e.target.value })}
+                  />
+                </div>
+                <div className="ac-form-group" style={{ marginBottom: 0 }}>
+                  <label>Email Address</label>
+                  <input
+                    type="email"
+                    required
+                    className="ac-input"
+                    placeholder="john@ticketliv.com"
+                    value={newUser.email}
+                    onChange={e => setNewUser({ ...newUser, email: e.target.value })}
+                  />
+                </div>
+                <div className="ac-form-group" style={{ marginBottom: 0 }}>
+                  <label>Temporary Password</label>
+                  <input
+                    type="text"
+                    required
+                    className="ac-input"
+                    placeholder="Enter a secure password..."
+                    value={newUser.password}
+                    onChange={e => setNewUser({ ...newUser, password: e.target.value })}
+                  />
+                </div>
+                <div className="ac-form-group" style={{ marginBottom: 0 }}>
+                  <label>System Role</label>
+                  <select
+                    className="ac-input"
+                    value={newUser.role}
+                    onChange={e => handleRoleChange(e.target.value as UserRole, false)}
+                  >
+                    <option value="Super Admin">Super Admin (Full Access)</option>
+                    <option value="Admin">Admin (Standard)</option>
+                    <option value="Manager">Manager (Operations)</option>
+                    <option value="Event Organizer">Event Organizer (Restricted)</option>
+                    <option value="Scanner User">Scanner User (Mobile Only)</option>
+                  </select>
+                </div>
               </div>
 
-              <div className="permissions-section" style={{ background: 'rgba(0,0,0,0.2)', padding: '20px', borderRadius: '12px', marginBottom: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Lock size={16} color="var(--text-muted)" /> Specific Route Permissions
+              <div className="permissions-section" style={{ background: 'rgba(255,255,255,0.01)', padding: '16px 20px', borderRadius: '16px', marginBottom: '20px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <h4 style={{ fontSize: '13px', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <Lock size={14} /> Explicit Route Permissions
                 </h4>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
                   {ALL_ADMIN_ROUTES.map((route: PermissionRoute) => {
                     const isChecked = newUser.permissions?.includes(route);
                     const isSuper = newUser.role === 'Super Admin';
                     return (
-                      <label key={route} style={{
-                        display: 'flex', alignItems: 'center', gap: '8px',
-                        padding: '10px', background: isChecked ? 'rgba(var(--primary-rgb), 0.1)' : 'rgba(255,255,255,0.03)',
-                        border: `1px solid ${isChecked ? 'var(--primary-color)' : 'rgba(255,255,255,0.05)'}`,
-                        borderRadius: '8px', cursor: isSuper ? 'not-allowed' : 'pointer',
+                      <label key={route} className="hover-scale" style={{
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                        padding: '12px', background: isChecked ? 'rgba(99, 102, 241, 0.08)' : 'rgba(255,255,255,0.02)',
+                        border: `1px solid ${isChecked ? 'rgba(99, 102, 241, 0.3)' : 'rgba(255,255,255,0.05)'}`,
+                        borderRadius: '12px', cursor: isSuper ? 'not-allowed' : 'pointer',
                         opacity: isSuper ? 0.6 : 1, transition: 'all 0.2s'
                       }}>
                         <input
@@ -565,9 +577,9 @@ const AdminControl = () => {
                           checked={isChecked}
                           disabled={isSuper}
                           onChange={() => handlePermissionToggle(route, false)}
-                          style={{ accentColor: 'var(--primary-color)', width: '16px', height: '16px', cursor: isSuper ? 'not-allowed' : 'pointer' }}
+                          style={{ accentColor: '#818cf8', width: '16px', height: '16px', cursor: isSuper ? 'not-allowed' : 'pointer' }}
                         />
-                        <span style={{ fontSize: '12px', color: isChecked ? 'white' : 'var(--text-secondary)' }}>{formatRouteName(route)}</span>
+                        <span style={{ fontSize: '12px', fontWeight: 500, color: isChecked ? 'white' : 'var(--text-secondary)' }}>{formatRouteName(route)}</span>
                       </label>
                     );
                   })}
@@ -576,9 +588,10 @@ const AdminControl = () => {
 
               <button
                 type="submit"
-                className="premium-submit-btn"
+                className="premium-submit-btn hover-scale"
+                style={{ height: '48px', borderRadius: '14px', fontSize: '15px' }}
               >
-                <Plus size={18} /> Create User
+                <Plus size={18} /> Finalize & Create User
               </button>
             </form>
           </div>
@@ -587,8 +600,8 @@ const AdminControl = () => {
 
       {/* Edit User Modal */}
       {isEditUserModalOpen && editingUser && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '720px', padding: '24px', borderRadius: '24px', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'grid', placeItems: 'center', padding: '20px', backdropFilter: 'blur(10px)', overflow: 'hidden' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '780px', padding: '28px 32px', borderRadius: '24px', position: 'relative', background: 'rgba(23, 23, 33, 0.98)', border: '1px solid rgba(255, 255, 255, 0.12)', boxShadow: '0 30px 100px rgba(0,0,0,0.8)', overflow: 'hidden' }}>
             <button
               onClick={() => setIsEditUserModalOpen(false)}
               style={{ position: 'absolute', top: '24px', right: '24px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
@@ -596,58 +609,65 @@ const AdminControl = () => {
               <XCircle size={24} />
             </button>
 
-            <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'white', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}><Edit2 size={18} color="var(--primary-color)" /> Edit System User</h3>
+            <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'white', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ background: 'var(--accent-primary)', padding: '10px', borderRadius: '12px', display: 'flex' }}>
+                <Edit2 size={20} color="white" />
+              </div>
+              Edit System User
+            </h3>
 
             <form onSubmit={handleUpdateUser}>
-              <div className="ac-form-group">
-                <label>Full Name</label>
-                <input
-                  type="text"
-                  required
-                  className="ac-input"
-                  value={editingUser.name}
-                  onChange={e => setEditingUser({ ...editingUser, name: e.target.value })}
-                />
-              </div>
-              <div className="ac-form-group">
-                <label>Email Address</label>
-                <input
-                  type="email"
-                  required
-                  className="ac-input"
-                  value={editingUser.email}
-                  onChange={e => setEditingUser({ ...editingUser, email: e.target.value })}
-                />
-              </div>
-              <div className="ac-form-group">
-                <label>System Role</label>
-                <select
-                  className="ac-input"
-                  value={editingUser.role}
-                  onChange={e => handleRoleChange(e.target.value as UserRole, true)}
-                >
-                  <option value="Super Admin">Super Admin (Full Access)</option>
-                  <option value="Admin">Admin (Standard)</option>
-                  <option value="Manager">Manager (Operations)</option>
-                  <option value="Event Organizer">Event Organizer (Restricted)</option>
-                  <option value="Scanner User">Scanner User (Mobile Only)</option>
-                </select>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                <div className="ac-form-group" style={{ marginBottom: 0 }}>
+                  <label>Full Name</label>
+                  <input
+                    type="text"
+                    required
+                    className="ac-input"
+                    value={editingUser.name}
+                    onChange={e => setEditingUser({ ...editingUser, name: e.target.value })}
+                  />
+                </div>
+                <div className="ac-form-group" style={{ marginBottom: 0 }}>
+                  <label>Email Address</label>
+                  <input
+                    type="email"
+                    required
+                    className="ac-input"
+                    value={editingUser.email}
+                    onChange={e => setEditingUser({ ...editingUser, email: e.target.value })}
+                  />
+                </div>
+                <div className="ac-form-group" style={{ marginBottom: 0 }}>
+                  <label>System Role</label>
+                  <select
+                    className="ac-input"
+                    value={editingUser.role}
+                    onChange={e => handleRoleChange(e.target.value as UserRole, true)}
+                  >
+                    <option value="Super Admin">Super Admin (Full Access)</option>
+                    <option value="Admin">Admin (Standard)</option>
+                    <option value="Manager">Manager (Operations)</option>
+                    <option value="Event Organizer">Event Organizer (Restricted)</option>
+                    <option value="Scanner User">Scanner User (Mobile Only)</option>
+                  </select>
+                </div>
               </div>
 
-              <div className="permissions-section" style={{ background: 'rgba(0,0,0,0.2)', padding: '20px', borderRadius: '12px', marginBottom: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Lock size={16} color="var(--text-muted)" /> Specific Route Permissions
+              <div className="permissions-section" style={{ background: 'rgba(255,255,255,0.01)', padding: '16px 20px', borderRadius: '16px', marginBottom: '20px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <h4 style={{ fontSize: '13px', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <Lock size={14} /> Explicit Route Permissions
                 </h4>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
                   {ALL_ADMIN_ROUTES.map((route: PermissionRoute) => {
                     const isChecked = editingUser.permissions?.includes(route);
                     const isSuper = editingUser.role === 'Super Admin';
                     return (
-                      <label key={route} style={{
-                        display: 'flex', alignItems: 'center', gap: '8px',
-                        padding: '10px', background: isChecked ? 'rgba(var(--primary-rgb), 0.1)' : 'rgba(255,255,255,0.03)',
-                        border: `1px solid ${isChecked ? 'var(--primary-color)' : 'rgba(255,255,255,0.05)'}`,
-                        borderRadius: '8px', cursor: isSuper ? 'not-allowed' : 'pointer',
+                      <label key={route} className="hover-scale" style={{
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                        padding: '12px', background: isChecked ? 'rgba(99, 102, 241, 0.08)' : 'rgba(255,255,255,0.02)',
+                        border: `1px solid ${isChecked ? 'rgba(99, 102, 241, 0.3)' : 'rgba(255,255,255,0.05)'}`,
+                        borderRadius: '12px', cursor: isSuper ? 'not-allowed' : 'pointer',
                         opacity: isSuper ? 0.6 : 1, transition: 'all 0.2s'
                       }}>
                         <input
@@ -655,9 +675,9 @@ const AdminControl = () => {
                           checked={isChecked}
                           disabled={isSuper}
                           onChange={() => handlePermissionToggle(route, true)}
-                          style={{ accentColor: 'var(--primary-color)', width: '16px', height: '16px', cursor: isSuper ? 'not-allowed' : 'pointer' }}
+                          style={{ accentColor: '#818cf8', width: '16px', height: '16px', cursor: isSuper ? 'not-allowed' : 'pointer' }}
                         />
-                        <span style={{ fontSize: '12px', color: isChecked ? 'white' : 'var(--text-secondary)' }}>{formatRouteName(route)}</span>
+                        <span style={{ fontSize: '12px', fontWeight: 500, color: isChecked ? 'white' : 'var(--text-secondary)' }}>{formatRouteName(route)}</span>
                       </label>
                     );
                   })}
@@ -666,9 +686,10 @@ const AdminControl = () => {
 
               <button
                 type="submit"
-                className="premium-submit-btn"
+                className="premium-submit-btn hover-scale"
+                style={{ height: '48px', borderRadius: '14px', fontSize: '15px' }}
               >
-                <Edit2 size={18} /> Save Changes
+                <Save size={18} /> Save Changes
               </button>
             </form>
           </div>
@@ -677,8 +698,8 @@ const AdminControl = () => {
 
       {/* Assign Scanner Modal */}
       {isAssignScannerModalOpen && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '540px', padding: '24px', borderRadius: '24px', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '15vh 20px', backdropFilter: 'blur(10px)', overflow: 'hidden' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '500px', padding: '40px', borderRadius: '32px', position: 'relative', background: 'rgba(23, 23, 33, 0.98)', border: '1px solid rgba(255, 255, 255, 0.12)', boxShadow: '0 30px 100px rgba(0,0,0,0.8)', overflow: 'hidden' }}>
             <button
               onClick={() => setIsAssignScannerModalOpen(false)}
               style={{ position: 'absolute', top: '24px', right: '24px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
@@ -729,32 +750,7 @@ const AdminControl = () => {
         </div>
       )}
 
-      {/* Hard Delete Confirmation Modal */}
-      {confirmDeleteModal.isOpen && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', backdropFilter: 'blur(8px)' }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '400px', padding: '32px', textAlign: 'center', border: '1px solid rgba(244, 63, 94, 0.3)' }}>
-             <div style={{ width: '64px', height: '64px', background: 'rgba(244, 63, 94, 0.1)', color: '#f43f5e', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-                <Trash2 size={32} />
-             </div>
-             <h3 style={{ color: 'white', fontSize: '20px', fontWeight: 800, marginBottom: '12px' }}>Delete User?</h3>
-             <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '32px', lineHeight: 1.6 }}>
-                Are you sure you want to delete <strong>{confirmDeleteModal.userName}</strong>? This action is permanent and cannot be undone.
-             </p>
-             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <button 
-                  className="btn-cancel" 
-                  onClick={() => setConfirmDeleteModal({ isOpen: false, userId: '', userName: '' })}
-                  style={{ padding: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', color: 'white' }}
-                >Cancel</button>
-                <button 
-                  className="btn-confirm-delete" 
-                  onClick={confirmHardDelete}
-                  style={{ padding: '12px', background: '#f43f5e', border: 'none', borderRadius: '12px', color: 'white', fontWeight: 700 }}
-                >Delete</button>
-             </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 };

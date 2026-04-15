@@ -3,9 +3,16 @@ import { Download, FileText } from 'lucide-react';
 const Reports = () => {
   return (
     <div className="dashboard-content" style={{ animation: 'fadeInUp 0.6s ease forwards' }}>
-      <div style={{ marginBottom: '20px' }}>
-        <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '4px' }}>Generate Reports</h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Export data and analytics for external accounting and audits.</p>
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', background: 'rgba(255,255,255,0.02)', padding: '15px 20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ background: 'var(--accent-primary)', padding: '8px', borderRadius: '10px', display: 'flex' }}>
+             <FileText size={18} color="#fff" />
+          </div>
+          <div>
+            <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#fff' }}>Generate Reports</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '2px 0 0 0', fontWeight: 500 }}>Export data and analytics for external accounting and audits.</p>
+          </div>
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { UploadCloud, Image as ImageIcon, Video, Link as LinkIcon, Save, CheckCircle, Eye, MousePointerClick, Trash2 } from 'lucide-react';
+import { UploadCloud, Image as ImageIcon, Video, Link as LinkIcon, Save, Trash2, CheckCircle, Eye, MousePointerClick } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import api from '../services/api';
 import { getMediaUrl } from '../utils/imageUtils';
 import './Ads.css';
@@ -20,15 +21,7 @@ const Ads = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [adsList, setAdsList] = useState<any[]>([]);
-  const [confirmModal, setConfirmModal] = useState<{
-    isOpen: boolean;
-    id: string;
-    title: string;
-  }>({
-    isOpen: false,
-    id: '',
-    title: ''
-  });
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [fileObject, setFileObject] = useState<File | null>(null);
 
@@ -86,7 +79,7 @@ const Ads = () => {
   const handleSave = async () => {
     if (!fileObject && !adData.fileUrl) return;
     setIsSaving(true);
-    
+
     try {
       let uploadedUrl = adData.fileUrl;
 
@@ -94,11 +87,11 @@ const Ads = () => {
       if (fileObject) {
         const formData = new FormData();
         formData.append('file', fileObject);
-        
+
         const uploadRes = await api.post('/media/upload', formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         }) as any;
-        
+
         if (uploadRes?.success && uploadRes.data?.url) {
           uploadedUrl = uploadRes.data.url;
         } else {
@@ -124,52 +117,44 @@ const Ads = () => {
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: any) {
       console.error('Failed to save ad', err);
-      alert(`Failed to Publish: ${err || 'Please check all fields and try again.'}`);
+      toast.error(`Failed to Publish: ${err?.message || 'Please check all fields and try again.'}`);
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleDelete = (id: string, title: string) => {
-    setConfirmModal({
-      isOpen: true,
-      id,
-      title
-    });
-  };
+  const confirmDelete = async (id: string) => {
+    if (!id) return;
 
-  const confirmDelete = async () => {
-    if (!confirmModal.id) return;
-    const id = confirmModal.id;
-    
-    // Save previous state for rollback
     const previousAds = [...adsList];
-    
-    // Optimistic Update: Remove from UI immediately
+
     setAdsList(prev => prev.filter(ad => String(ad.id) !== String(id)));
-    setConfirmModal({ ...confirmModal, isOpen: false });
-    
+    setDeletingId(null);
+
     try {
-      console.log(`[Ads] Attempting to delete ad: ${id}`);
       await api.delete(`/ads/${id}`);
-      console.log(`[Ads] Successfully deleted ad: ${id}`);
+      toast.success('Campaign deleted successfully');
     } catch (err) {
       console.error('Failed to delete ad', err);
-      // Rollback on failure
       setAdsList(previousAds);
-      alert('Failed to delete ad. Please try again.');
+      toast.error('Failed to delete ad. Please try again.');
     }
   };
 
   return (
     <div className="ads-container">
-      <div className="ads-header">
-        <div>
-          <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '4px' }}>Home Page Ads Manager</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>Control the promotional banner or video shown on the TicketLiv mobile app home screen.</p>
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', background: 'rgba(255,255,255,0.02)', padding: '15px 20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ background: 'var(--accent-primary)', padding: '8px', borderRadius: '10px', display: 'flex' }}>
+            <ImageIcon size={18} color="#fff" />
+          </div>
+          <div>
+            <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#fff' }}>Home Page Ads Manager</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '2px 0 0 0', fontWeight: 500 }}>Control the promotional banner or video shown on the TicketLiv mobile app home screen.</p>
+          </div>
         </div>
-        <button 
-          className={`btn-save ${saveSuccess ? 'success' : ''}`} 
+        <button
+          className={`btn-save ${saveSuccess ? 'success' : ''}`}
           onClick={handleSave}
           disabled={isSaving || !adData.fileUrl}
         >
@@ -178,14 +163,13 @@ const Ads = () => {
       </div>
 
       <div className="ads-content-grid">
-        {/* Editor Form */}
         <div className="ads-editor glass-panel">
           <h3 className="section-title">Ad Configuration</h3>
-          
+
           <div className="form-group">
             <label>1. Select Media Type</label>
             <div className="type-selector">
-              <button 
+              <button
                 className={`type-btn ${adData.type === 'image' ? 'active' : ''}`}
                 onClick={() => {
                   if (adData.fileUrl && adData.fileUrl.startsWith('blob:')) {
@@ -196,7 +180,7 @@ const Ads = () => {
               >
                 <ImageIcon size={20} /> Image Ad (Banner)
               </button>
-              <button 
+              <button
                 className={`type-btn ${adData.type === 'video' ? 'active' : ''}`}
                 onClick={() => {
                   if (adData.fileUrl && adData.fileUrl.startsWith('blob:')) {
@@ -212,16 +196,16 @@ const Ads = () => {
 
           <div className="form-group">
             <label>2. Upload {adData.type === 'image' ? 'Image' : 'Video'}</label>
-            <div 
+            <div
               className={`upload-zone ${isHovering ? 'hover' : ''} ${adData.fileUrl ? 'has-file' : ''}`}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
             >
-              <input 
-                type="file" 
-                id="file-upload" 
-                className="hidden-input" 
+              <input
+                type="file"
+                id="file-upload"
+                className="hidden-input"
                 accept={adData.type === 'image' ? 'image/*' : 'video/*'}
                 onChange={handleFileChange}
               />
@@ -248,9 +232,9 @@ const Ads = () => {
             <p className="field-desc">Where should users be redirected when they tap the ad?</p>
             <div className="input-with-icon">
               <LinkIcon size={18} className="input-icon" />
-              <input 
-                type="url" 
-                placeholder="https://ticketliv.com/promo/summer-fest" 
+              <input
+                type="url"
+                placeholder="https://ticketliv.com/promo/summer-fest"
                 value={adData.link}
                 onChange={(e) => setAdData({ ...adData, link: e.target.value })}
               />
@@ -258,17 +242,15 @@ const Ads = () => {
           </div>
         </div>
 
-        {/* Live Preview Panel */}
         <div className="ads-preview glass-panel">
           <div className="preview-header">
             <h3 className="section-title">Mobile App Preview</h3>
             <span className="live-badge">Live View Simulation</span>
           </div>
-          
+
           <div className="mobile-mockup">
             <div className="mockup-notch"></div>
             <div className="mockup-screen">
-              {/* Fake Mobile App UI Header */}
               <div className="mockup-app-header">
                 <div>
                   <h4 style={{ margin: 0, fontSize: '14px' }}>TicketLiv Home</h4>
@@ -277,22 +259,20 @@ const Ads = () => {
                 <div className="mockup-avatar"></div>
               </div>
 
-              {/* The AD Component */}
               <div className="mockup-ad-container">
                 {adData.fileUrl ? (
-                    adData.type === 'image' ? (
-                      <img src={getMediaUrl(adData.fileUrl)} alt="Ad Preview" className="preview-media image" />
-                    ) : (
-                      <video src={getMediaUrl(adData.fileUrl)} className="preview-media video" autoPlay loop muted playsInline />
-                    )
+                  adData.type === 'image' ? (
+                    <img src={getMediaUrl(adData.fileUrl)} alt="Ad Preview" className="preview-media image" />
+                  ) : (
+                    <video src={getMediaUrl(adData.fileUrl)} className="preview-media video" autoPlay loop muted playsInline />
+                  )
                 ) : (
                   <div className="empty-preview">
                     <ImageIcon size={32} className="text-muted" style={{ marginBottom: '8px' }} />
                     <p>Ad will appear here</p>
                   </div>
                 )}
-                
-                {/* Ad Overlay Text/Badge */}
+
                 <div className="ad-overlay">
                   <span className="sponsored-badge">Sponsored</span>
                   {adData.link && (
@@ -301,7 +281,6 @@ const Ads = () => {
                 </div>
               </div>
 
-              {/* Fake Content Below Ad */}
               <div className="mockup-content">
                 <div className="mockup-card"></div>
                 <div className="mockup-card"></div>
@@ -311,7 +290,6 @@ const Ads = () => {
         </div>
       </div>
 
-      {/* Ads List Table */}
       <div className="ads-list-section glass-panel">
         <div className="preview-header" style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
           <h3 className="section-title" style={{ padding: 0, border: 'none' }}>Active & Past Campaigns</h3>
@@ -322,7 +300,7 @@ const Ads = () => {
               <th>Campaign Details</th>
               <th>Status</th>
               <th>Performance</th>
-              <th>Actions</th>
+              <th style={{ minWidth: '180px', textAlign: 'right', paddingRight: '20px' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -361,10 +339,20 @@ const Ads = () => {
                       </div>
                     </div>
                   </td>
-                  <td>
-                    <button className="btn-delete-ad" onClick={() => handleDelete(ad.id, ad.title)} title="Delete Campaign">
-                      <Trash2 size={16} />
-                    </button>
+                  <td style={{ width: '180px', textAlign: 'right' }}>
+                    {deletingId === String(ad.id) ? (
+                      <div className="inline-confirm">
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: '#f43f5e', marginRight: '8px' }}>Sure?</span>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                           <button className="inline-btn-yes" onClick={() => confirmDelete(ad.id)}>Yes</button>
+                           <button className="inline-btn-no" onClick={() => setDeletingId(null)}>No</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button className="btn-delete-ad" onClick={() => setDeletingId(String(ad.id))} title="Delete Campaign">
+                        <Trash2 size={16} />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))
@@ -372,23 +360,6 @@ const Ads = () => {
           </tbody>
         </table>
       </div>
-
-      {/* Confirmation Modal */}
-      {confirmModal.isOpen && (
-        <div className="confirm-modal-overlay">
-          <div className="confirm-modal glass-panel">
-            <div className="confirm-modal-icon">
-              <Trash2 size={32} />
-            </div>
-            <h3>Delete Campaign?</h3>
-            <p>Are you sure you want to delete "<strong>{confirmModal.title}</strong>"? This will immediately remove it from the mobile app home screen.</p>
-            <div className="confirm-modal-actions">
-              <button className="btn-cancel" onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })}>Cancel</button>
-              <button className="btn-confirm-delete" onClick={confirmDelete}>Delete Campaign</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
