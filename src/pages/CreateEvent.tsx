@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, MapPin, Calendar, Clock, Ticket, Plus, Trash2, CheckSquare, AlertTriangle, AlertCircle, Globe, Star, Play, Video, Sparkles, Camera, PieChart, Infinity as InfinityIcon } from 'lucide-react';
+import { Save, MapPin, Calendar, Clock, Tag, Ticket, Plus, Trash2, Info, CheckSquare, XCircle, AlertTriangle, AlertCircle, Globe, Star, Play, Video, FileText, Sparkles, Camera, PieChart, Infinity as InfinityIcon } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import api from '../services/api';
@@ -248,11 +248,12 @@ const CreateEvent = () => {
   const [convenienceFeeEnabled, setConvenienceFeeEnabled] = useState(false);
   const [convenienceFeeRate, setConvenienceFeeRate] = useState<number>(0);
   const [convenienceFeeType, setConvenienceFeeType] = useState<'fixed' | 'percentage'>('percentage');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Load existing event data if in edit mode
   useEffect(() => {
     const loadEvent = async () => {
-      if (editId) {
+      if (editId && events.length > 0 && !existingEvent) {
         const eventToEdit = events.find(e => e.id === editId.toString());
         if (eventToEdit) {
           setExistingEvent(eventToEdit);
@@ -286,6 +287,12 @@ const CreateEvent = () => {
             setExtraInfo(prev => ({ ...prev, ...eventToEdit.extra_info }));
           }
 
+          if (eventToEdit.field_config) setFieldConfig(prev => ({ ...prev, ...eventToEdit.field_config }));
+          if (eventToEdit.refund_policy) setRefundPolicy(eventToEdit.refund_policy);
+          if (eventToEdit.entry_policy) setEntryPolicy(eventToEdit.entry_policy);
+          if (eventToEdit.support_email) setSupportEmail(eventToEdit.support_email);
+          if (eventToEdit.support_phone) setSupportPhone(eventToEdit.support_phone);
+
           if (eventToEdit.mainMedia && eventToEdit.mainMedia.length > 0) {
             setMainMedia(eventToEdit.mainMedia);
           } else if (eventToEdit.image_url) {
@@ -298,8 +305,8 @@ const CreateEvent = () => {
             setLayoutMedia([{ url: eventToEdit.layout_image, type: 'image' }]);
           }
 
-          if (eventToEdit.gates) setGates(eventToEdit.gates);
-          if (eventToEdit.gallery) {
+           if (eventToEdit.gates) setGates(eventToEdit.gates || []);
+          if (eventToEdit.gallery && eventToEdit.gallery.length > 0) {
             setGallery(eventToEdit.gallery);
             const savedMetadata = eventToEdit.extra_info?.galleryMetadata;
             if (savedMetadata && Array.isArray(savedMetadata)) {
@@ -312,7 +319,7 @@ const CreateEvent = () => {
       }
     };
     loadEvent();
-  }, [editId, events]);
+  }, [editId, events, existingEvent]);
 
 
 
@@ -565,13 +572,18 @@ const CreateEvent = () => {
 
 
   const handleSubmit = async (status: 'Live' | 'Cancelled' | 'Sold Out' | 'Completed' | 'Draft') => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    
     if (!title.trim()) {
       toast.error("Event Title is required!");
+      setIsSubmitting(false);
       return;
     }
 
     if (status !== 'Draft' && selectedCategoryIds.length === 0) {
       toast.error("At least one category is required for publishing!");
+      setIsSubmitting(false);
       return;
     }
 
@@ -618,11 +630,14 @@ const CreateEvent = () => {
         title,
         date,
         time,
-        event_date: date && time ? `${date}T${time}:00Z` : '',
         location,
+        venue_name: location,
         venue_address: venueAddress,
         map_url: mapUrl,
+        event_date: date && time ? `${date}T${time}:00Z` : '',
+        start_date: date && time ? `${date}T${time}:00Z` : '',
         description,
+        terms: termsStr.split('\n').filter(line => line.trim() !== ''),
         extra_info: { ...extraInfo, galleryMetadata: finalGalleryMetadata },
         category_id: selectedCategoryIds[0],
         categoryIds: selectedCategoryIds,
@@ -679,6 +694,8 @@ const CreateEvent = () => {
     } catch (err: any) {
       console.error('Submit Error:', err);
       toast.error(`Failed to save event: ${err.message || 'Check your connection.'}`, { id: toastId });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1638,6 +1655,7 @@ const CreateEvent = () => {
           <div className="glass-attached" style={{ padding: '24px', display: 'flex', gap: '16px' }}>
             <button
               type="button"
+              disabled={isSubmitting}
               onClick={() => setConfirmModal({
                 isOpen: true,
                 title: 'Save for later?',
@@ -1660,17 +1678,19 @@ const CreateEvent = () => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
+                cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s',
+                opacity: isSubmitting ? 0.5 : 1
               }}
-              onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
-              onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+              onMouseOver={(e) => { if (!isSubmitting) e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+              onMouseOut={(e) => { if (!isSubmitting) e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
             >
-              <FileText size={20} /> Save for Later
+              <FileText size={20} /> {isSubmitting ? 'Wait...' : 'Save for Later'}
             </button>
 
             <button
               type="button"
+              disabled={isSubmitting}
               onClick={() => setConfirmModal({
                 isOpen: true,
                 title: editId ? 'Update Event?' : 'Publish Event?',
@@ -1695,14 +1715,15 @@ const CreateEvent = () => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                cursor: 'pointer',
+                cursor: isSubmitting ? 'not-allowed' : 'pointer',
                 boxShadow: '0 8px 24px var(--glow-primary)',
-                transition: 'transform 0.2s, box-shadow 0.2s'
+                transition: 'transform 0.2s, box-shadow 0.2s',
+                opacity: isSubmitting ? 0.7 : 1
               }}
-              onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 12px 30px var(--glow-primary)'; }}
-              onMouseOut={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 8px 24px var(--glow-primary)'; }}
+              onMouseOver={(e) => { if (!isSubmitting) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 12px 30px var(--glow-primary)'; } }}
+              onMouseOut={(e) => { if (!isSubmitting) { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 8px 24px var(--glow-primary)'; } }}
             >
-              <Save size={20} /> {editId ? 'Update Event' : 'Publish Event Now'}
+              <Save size={20} /> {isSubmitting ? 'Processing...' : (editId ? 'Update Event' : 'Publish Event Now')}
             </button>
           </div>
         </div>
@@ -1775,9 +1796,10 @@ const CreateEvent = () => {
                 Go Back
               </button>
               <button
+                disabled={isSubmitting}
                 onClick={async () => {
-                  if (confirmModal.status) await handleSubmit(confirmModal.status as any);
-                  setConfirmModal({ ...confirmModal, isOpen: false });
+                   if (confirmModal.status) await handleSubmit(confirmModal.status as any);
+                   setConfirmModal({ ...confirmModal, isOpen: false });
                 }}
                 style={{
                   padding: '14px',
@@ -1787,14 +1809,15 @@ const CreateEvent = () => {
                   color: 'white',
                   fontWeight: 800,
                   fontSize: '15px',
-                  cursor: 'pointer',
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
                   boxShadow: `0 8px 20px ${confirmModal.confirmColor}40`,
-                  transition: 'transform 0.2s'
+                  transition: 'transform 0.2s',
+                  opacity: isSubmitting ? 0.7 : 1
                 }}
-                onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; }}
-                onMouseOut={(e) => { e.currentTarget.style.transform = 'none'; }}
+                onMouseOver={(e) => { if (!isSubmitting) e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                onMouseOut={(e) => { if (!isSubmitting) e.currentTarget.style.transform = 'none'; }}
               >
-                {confirmModal.confirmText}
+                {isSubmitting ? 'Working...' : confirmModal.confirmText}
               </button>
             </div>
           </div>
