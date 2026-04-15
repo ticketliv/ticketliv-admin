@@ -122,6 +122,23 @@
   position: relative;
 }
 
+/* Scrollable Container with forced gutter stability */
+.scrollable-container {
+  flex: 1;
+  overflow-y: scroll; /* Force scrollbar gutter to prevent layout jumping */
+  overflow-x: hidden;
+  position: relative;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+.content-stabilizer {
+  min-height: 101%; /* Ensures something is always scrollable for consistent feel */
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 40px; /* Buffer for bottom content */
+}
+
 /* Header */
 .top-header {
   padding: 24px 40px;

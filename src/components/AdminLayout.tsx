@@ -57,7 +57,7 @@ const AdminLayout = () => {
 
   // Auto-refresh layout display & fetch fresh data when navigating to any page
   useEffect(() => {
-    // 1. Reset scroll position seamlessly
+    // 1. Reset scroll position seamlessly ONLY when path changes
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = 0;
     } else {
@@ -66,9 +66,16 @@ const AdminLayout = () => {
     
     // 2. Refresh critical application contexts asynchronously 
     // so the new page displays fresh DB stats instantly without manual clicks
-    refreshEvents?.().catch(() => {});
-    refreshDashboardStats?.().catch(() => {});
-  }, [location.pathname, refreshEvents, refreshDashboardStats]);
+    const initData = async () => {
+      try {
+        await Promise.allSettled([
+          refreshEvents?.(),
+          refreshDashboardStats?.()
+        ]);
+      } catch (e) {}
+    };
+    initData();
+  }, [location.pathname]); // ONLY dependencies that should trigger a scroll reset & fresh fetch
 
   const currentPage = useMemo(() =>
     NAV_PAGES.find(p => p.path === location.pathname),
@@ -354,8 +361,10 @@ const AdminLayout = () => {
           </header>
 
         {/* Dynamic Nested Content */}
-        <div ref={scrollContainerRef} className="scrollable-container" style={{ flex: 1, overflowY: 'auto' }}>
-          <Outlet />
+        <div ref={scrollContainerRef} className="scrollable-container">
+          <div className="content-stabilizer">
+            <Outlet />
+          </div>
         </div>
       </main>
     </div>

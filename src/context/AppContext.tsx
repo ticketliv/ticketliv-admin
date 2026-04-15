@@ -336,7 +336,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [dashboardStats, setDashboardStats] = useState<any>(null);
 
-  const addAuditLog = (action: string, type: AuditLog['type'], metadata?: any) => {
+  const addAuditLog = React.useCallback((action: string, type: AuditLog['type'], metadata?: any) => {
     const newLog: AuditLog = {
       id: `LOG-${Date.now()}`,
       userId: currentAdminUser?.id || 'System',
@@ -347,7 +347,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       metadata
     };
     setAuditLogs(prev => [newLog, ...prev]);
-  };
+  }, [currentAdminUser]);
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -466,7 +466,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const addEvent = async (newEvent: AppEvent) => {
+  const addEvent = React.useCallback(async (newEvent: AppEvent) => {
     try {
        const res = await EventService.createEvent(newEvent);
        if (res) {
@@ -477,9 +477,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       console.error('Failed to create event', err);
       throw err;
     }
-  };
+  }, []);
 
-  const deleteEvent = async (id: string) => {
+  const deleteEvent = React.useCallback(async (id: string) => {
     try {
       await EventService.deleteEvent(id);
       setEvents(prev => prev.filter(evt => evt.id !== id));
@@ -487,9 +487,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       console.error('Failed to delete event', err);
       throw err;
     }
-  };
+  }, []);
 
-  const deleteCategory = async (id: number | string) => {
+  const deleteCategory = React.useCallback(async (id: number | string) => {
     // Always remove locally first for instant UI feedback
     setCategories(prev => prev.filter(cat => cat.id !== id));
     
@@ -509,9 +509,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     } catch (err) {
       console.error('API delete failed (local removal persisted):', err);
     }
-  };
+  }, []);
 
-  const addCategory = async (categoryData: Partial<Category>) => {
+  const addCategory = React.useCallback(async (categoryData: Partial<Category>) => {
     try {
       const res = await CategoryService.createCategory(categoryData) as unknown as ApiResponse<any>;
       const serverCat = res?.data || res;
@@ -544,9 +544,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       };
       setCategories(prev => [localCat, ...prev]);
     }
-  };
+  }, []);
 
-  const updateCategory = async (id: number | string, updatedData: Partial<Category>) => {
+  const updateCategory = React.useCallback(async (id: number | string, updatedData: Partial<Category>) => {
     try {
       const res = await CategoryService.updateCategory(id as any, updatedData) as unknown as ApiResponse<any>;
       if (res?.data) {
@@ -557,9 +557,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       console.error('Failed to update category', err);
       throw err;
     }
-  };
+  }, []);
 
-  const updateEvent = async (id: string, updatedData: Partial<AppEvent>) => {
+  const updateEvent = React.useCallback(async (id: string, updatedData: Partial<AppEvent>) => {
     try {
       const res = await EventService.updateEvent(id, updatedData);
       if (res) {
@@ -570,7 +570,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       console.error('Failed to update event', err);
       throw err;
     }
-  };
+  }, []);
 
   const refreshEvents = React.useCallback(async () => {
     try {
@@ -582,7 +582,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const refreshDashboardStats = async () => {
+  const refreshDashboardStats = React.useCallback(async () => {
     try {
       const res = await AdminService.getDashboardStats();
       if (res) {
@@ -592,9 +592,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     } catch (err) {
       console.error('Failed to refresh dashboard stats', err);
     }
-  };
+  }, []);
 
-  const updateAdminPermissions = async (id: string, permissions: PermissionRoute[]) => {
+  const updateAdminPermissions = React.useCallback(async (id: string, permissions: PermissionRoute[]) => {
     try {
       const user = adminUsers.find(u => u.id === id);
       const res = await AuthService.updatePermissions(id, permissions, user?.role) as unknown as ApiResponse<AdminUser>;
@@ -610,9 +610,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       console.error('Failed to update permissions', err);
       throw err;
     }
-  };
+  }, [adminUsers, currentAdminUser]);
 
-  const addAdminUser = async (user: AdminUser) => {
+  const addAdminUser = React.useCallback(async (user: AdminUser) => {
     try {
       const res = await AuthService.createUser(user) as unknown as ApiResponse<AdminUser>;
       if (res?.data) setAdminUsers(prev => [res.data, ...prev]);
@@ -620,9 +620,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       console.error('Failed to create staff', err);
       throw err;
     }
-  };
+  }, []);
 
-  const updateAdminUser = async (id: string, updatedData: Partial<AdminUser>) => {
+  const updateAdminUser = React.useCallback(async (id: string, updatedData: Partial<AdminUser>) => {
     try {
       const res = await AuthService.updateUser(id, updatedData) as unknown as ApiResponse<AdminUser>;
       
@@ -642,7 +642,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         user.id === id ? { ...user, ...updatedData } : user
       ));
     }
-  };
+  }, [currentAdminUser]);
 
   const deleteAdminUser = async (id: string) => {
     try {
@@ -663,7 +663,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const loginUser = (user: AdminUser, token: string) => {
+  const loginUser = React.useCallback((user: AdminUser, token: string) => {
     const roleKey = Object.keys(DEFAULT_ROLE_PERMISSIONS).find(
       key => key.toLowerCase().replace(/\s/g, '') === user.role?.toLowerCase().replace(/\s/g, '')
     );
@@ -683,7 +683,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       }
       return prev;
     });
-  };
+  }, [addAuditLog]);
 
   const addCoupon = async (coupon: Coupon) => {
     try {

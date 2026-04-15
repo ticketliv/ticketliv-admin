@@ -52,6 +52,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
+  overflow: hidden; /* Prevent body scroll, handle nested scroll in app-container */
 }
 
 /* Global Utility Classes */
