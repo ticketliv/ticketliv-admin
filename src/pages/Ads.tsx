@@ -333,12 +333,13 @@ const Ads = () => {
                 <tr key={ad.id}>
                   <td>
                     <div className="ad-info" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                      <div className="ad-thumb-container" style={{ 
-                        width: '140px', 
-                        minWidth: '140px', 
-                        borderRadius: '12px', 
-                        overflow: 'hidden', 
-                        background: 'rgba(0,0,0,0.3)', 
+                      <div className="ad-thumb-container" style={{
+                        width: '140px',
+                        minWidth: '140px',
+                        height: '80px',
+                        borderRadius: '12px',
+                        overflow: 'hidden',
+                        background: 'rgba(0,0,0,0.3)',
                         border: '1px solid rgba(255,255,255,0.08)',
                         boxShadow: '0 8px 16px rgba(0,0,0,0.2)',
                         position: 'relative',
@@ -348,21 +349,21 @@ const Ads = () => {
                       }}>
                         {ad.type === 'video' ? (
                           <>
-                            <video 
-                              src={getMediaUrl(ad.video_url || ad.media_url)} 
-                              style={{ width: '100%', height: 'auto', maxHeight: '120px', display: 'block' }}
+                            <video
+                              src={getMediaUrl(ad.video_url || ad.media_url)}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px' }}
                               onError={(e) => {
                                 (e.currentTarget as HTMLVideoElement).src = 'https://placehold.co/400x225/181824/white?text=Video+Campaign';
                               }}
-                              muted 
-                              playsInline 
+                              muted
+                              playsInline
                             />
                             <div style={{ position: 'absolute', bottom: '6px', right: '6px', background: 'var(--accent-primary)', padding: '2px 6px', borderRadius: '4px', fontSize: '8px', fontWeight: 900, color: '#fff', letterSpacing: '1px', boxShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>VIDEO</div>
                           </>
                         ) : (
-                          <img 
-                            src={getMediaUrl(ad.media_url || ad.video_url)} 
-                            style={{ width: '100%', height: 'auto', maxHeight: '120px', display: 'block' }}
+                          <img
+                            src={getMediaUrl(ad.media_url || ad.video_url)}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px' }}
                             alt={ad.title}
                             onError={(e) => {
                               (e.currentTarget as HTMLImageElement).src = 'https://placehold.co/400x225/181824/white?text=Banner+Ad';
@@ -401,8 +402,8 @@ const Ads = () => {
                       <div className="inline-confirm">
                         <span style={{ fontSize: '12px', fontWeight: 600, color: '#f43f5e', marginRight: '8px' }}>Sure?</span>
                         <div style={{ display: 'flex', gap: '4px' }}>
-                           <button className="inline-btn-yes" onClick={() => confirmDelete(ad.id)}>Yes</button>
-                           <button className="inline-btn-no" onClick={() => setDeletingId(null)}>No</button>
+                          <button className="inline-btn-yes" onClick={() => confirmDelete(ad.id)}>Yes</button>
+                          <button className="inline-btn-no" onClick={() => setDeletingId(null)}>No</button>
                         </div>
                       </div>
                     ) : (

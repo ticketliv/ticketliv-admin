@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Save, MapPin, Calendar, Clock, Tag, Ticket, Plus, Trash2, Info, CheckSquare, XCircle, AlertTriangle, AlertCircle, Globe, Star, Video, FileText, Sparkles, Camera, PieChart, Infinity as InfinityIcon } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import api from '../services/api';
+import axios from 'axios';
+import { CONFIG, STORAGE_KEYS } from '../config/constants';
 import { useApp, type AppEvent, type TicketCategory, type MediaItem } from '../context/AppContext';
-import { getMediaUrl } from '../utils/imageUtils';
+import { getMediaUrl, isMediaVideo } from '../utils/imageUtils';
 
 const getSponsorIcon = (iconName: string) => {
   switch (iconName) {
@@ -62,6 +63,43 @@ const presetSponsorIcons = [
   { name: 'Mobile', value: 'phone-portrait' },
 ];
 
+const stripApiUrl = (url: string | null | undefined): string => {
+  if (!url) return '';
+  if (url.startsWith('blob:') || url.startsWith('data:')) return url;
+
+  // Clean dots and slashes first
+  const cleanUrl = url.replace(/^\.\//, '').replace(/^\\/g, '/');
+
+  // If it's a YouTube, Vimeo or external link, preserve it completely (including query params)
+  if (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com') || (url.startsWith('http') && !url.includes('/uploads'))) {
+    return url;
+  }
+
+  try {
+    // If it's a full URL clearly pointing to our assets, extract just the path from /uploads
+    if (cleanUrl.startsWith('http')) {
+      const urlObj = new URL(cleanUrl);
+      if (urlObj.pathname.includes('/uploads')) {
+        const uploadsIndex = urlObj.pathname.indexOf('/uploads');
+        return urlObj.pathname.substring(uploadsIndex);
+      }
+      return urlObj.pathname;
+    }
+
+    // If it's a relative path starting with /uploads, return as is (but cleaned)
+    if (cleanUrl.startsWith('/uploads')) return cleanUrl;
+
+    // If it's a relative path like "uploads/images/...", ensure it starts with /
+    if (cleanUrl.includes('uploads/')) {
+      const uploadsIndex = cleanUrl.indexOf('uploads/');
+      return '/' + cleanUrl.substring(uploadsIndex);
+    }
+
+    return cleanUrl.startsWith('/') ? cleanUrl : '/' + cleanUrl;
+  } catch {
+    return cleanUrl;
+  }
+};
 
 const CreateEvent = () => {
   const { addEvent, updateEvent, events, categories, currentAdminUser } = useApp();
@@ -83,9 +121,10 @@ const CreateEvent = () => {
   const [venueAddress, setVenueAddress] = useState('');
   const [mapUrl, setMapUrl] = useState('');
   const [termsStr, setTermsStr] = useState('Standard Terms Apply');
+  // No unused selection helper states needed, time and date strings are the source of truth
 
   // Time Helpers
-  const getTimeComponents = (timeStr: string) => {
+  const getTimeComponents = useCallback((timeStr: string) => {
     if (!timeStr || !timeStr.includes(':')) return { hour: '12', minute: '00', period: 'PM' };
     const [h, m] = timeStr.split(':').map(Number);
     const period = h >= 12 ? 'PM' : 'AM';
@@ -96,18 +135,18 @@ const CreateEvent = () => {
       minute: m.toString().padStart(2, '0'),
       period
     };
-  };
+  }, []);
 
-  const updateTimeFromComponents = (h: string, m: string, p: string) => {
+  const updateTimeFromComponents = useCallback((h: string, m: string, p: string) => {
     let hour = parseInt(h);
     if (p === 'PM' && hour < 12) hour += 12;
     if (p === 'AM' && hour === 12) hour = 0;
     const timeStr = `${hour.toString().padStart(2, '0')}:${m.padStart(2, '0')}`;
     setTime(timeStr);
-  };
+  }, [setTime]);
 
   // Date Helpers
-  const getDateComponents = (dateStr: string) => {
+  const getDateComponents = useCallback((dateStr: string) => {
     let d = new Date();
     if (dateStr && dateStr.includes('-')) {
       const [y, m, day] = dateStr.split('-').map(Number);
@@ -118,12 +157,12 @@ const CreateEvent = () => {
       month: (d.getMonth() + 1).toString(),
       year: d.getFullYear().toString()
     };
-  };
+  }, []);
 
-  const updateDateFromComponents = (d: string, m: string, y: string) => {
+  const updateDateFromComponents = useCallback((d: string, m: string, y: string) => {
     const formattedDate = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
     setDate(formattedDate);
-  };
+  }, [setDate]);
 
   // Modern UI Styles
   const cardStyle: React.CSSProperties = {
@@ -250,77 +289,124 @@ const CreateEvent = () => {
   const [convenienceFeeRate, setConvenienceFeeRate] = useState<number>(0);
   const [convenienceFeeType, setConvenienceFeeType] = useState<'fixed' | 'percentage'>('percentage');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [videoLink, setVideoLink] = useState('');
 
   // Load existing event data if in edit mode
-  useEffect(() => {
-    const loadEvent = async () => {
-      if (editId && events.length > 0 && !existingEvent) {
-        const eventToEdit = events.find(e => e.id === editId.toString());
-        if (eventToEdit) {
-          setExistingEvent(eventToEdit);
-          setTitle(eventToEdit.title || '');
-          setDate(eventToEdit.date || '');
-          setTime(eventToEdit.time || '');
-          setLocation(eventToEdit.location || '');
-          setVenueAddress(eventToEdit.venue_address || '');
-          setMapUrl(eventToEdit.map_url || '');
-          setDescription(eventToEdit.description || '');
-          setSelectedCategoryIds(eventToEdit.categoryIds ? eventToEdit.categoryIds : (eventToEdit.category_id ? [eventToEdit.category_id] : []));
-          if (eventToEdit.terms) setTermsStr(eventToEdit.terms.join('\n'));
+  const loadEventData = useCallback(() => {
+    if (editId && events.length > 0) {
+      console.log(`[EditEvent] Loading data for ID: ${editId}`);
+      const eventToEdit = events.find(e => e.id === editId.toString());
+      if (eventToEdit) {
+        // Clear previous state first to avoid flickering/ghosting
+        setTitle('');
+        setPresenterName('');
+        setOrganizerName('');
+        setDate('');
+        setTime('');
+        setLocation('');
+        setDescription('');
+        setVenueAddress('');
+        setMainMedia([]);
+        setLayoutMedia([]);
+        setGallery([]);
+        setGalleryMetadata([]);
+        setSponsors([]);
+        setProhibitedItems([]);
+        setExistingEvent(eventToEdit);
 
-          if (eventToEdit.more_info) setHighlights(eventToEdit.more_info);
-          if (eventToEdit.ticketCategories && eventToEdit.ticketCategories.length > 0) {
-            setTicketCategories(eventToEdit.ticketCategories);
-          }
-          if (eventToEdit.financials) {
-            setGstEnabled(eventToEdit.financials.gstEnabled || false);
-            setCgstRate(eventToEdit.financials.cgstRate || 9);
-            setSgstRate(eventToEdit.financials.sgstRate || 9);
-            setConvenienceFeeEnabled(eventToEdit.financials.platformFeeEnabled || eventToEdit.financials.convenienceFeeEnabled || false);
-            setConvenienceFeeRate(eventToEdit.financials.platformFeeRate || eventToEdit.financials.convenienceFeeRate || 0);
-            setConvenienceFeeType(eventToEdit.financials.platformFeeType || eventToEdit.financials.convenienceFeeType || 'percentage');
-          }
-          // status fields removed
-          setPresenterName(eventToEdit.presenter_name || '');
-          setOrganizerName(eventToEdit.organizer_name || '');
+        // Populate new data
+        setTitle(eventToEdit.title || '');
 
-          if (eventToEdit.extra_info) {
-            setExtraInfo(prev => ({ ...prev, ...eventToEdit.extra_info }));
-          }
+        if (eventToEdit.start_date) {
+          setDate(eventToEdit.start_date.split('T')[0]);
+          const timeParts = getTimeComponents(eventToEdit.time);
+          const h_val = timeParts.period === 'PM' && timeParts.hour !== '12' ? parseInt(timeParts.hour) + 12 : (timeParts.period === 'AM' && timeParts.hour === '12' ? 0 : parseInt(timeParts.hour));
+          setTime(`${h_val.toString().padStart(2, '0')}:${timeParts.minute.padStart(2, '0')}`);
+        }
 
-          if (eventToEdit.field_config) setFieldConfig(prev => ({ ...prev, ...eventToEdit.field_config }));
-          if (eventToEdit.refund_policy) setRefundPolicy(eventToEdit.refund_policy);
-          if (eventToEdit.entry_policy) setEntryPolicy(eventToEdit.entry_policy);
-          if (eventToEdit.support_email) setSupportEmail(eventToEdit.support_email);
-          if (eventToEdit.support_phone) setSupportPhone(eventToEdit.support_phone);
+        setLocation(eventToEdit.location || eventToEdit.venue_name || '');
+        setVenueAddress(eventToEdit.venue_address || '');
+        setMapUrl(eventToEdit.map_url || '');
+        setDescription(eventToEdit.description || '');
+        setSelectedCategoryIds(eventToEdit.categoryIds ? eventToEdit.categoryIds : (eventToEdit.category_id ? [eventToEdit.category_id] : []));
+        if (eventToEdit.terms) setTermsStr(eventToEdit.terms.join('\n'));
 
-          if (eventToEdit.mainMedia && eventToEdit.mainMedia.length > 0) {
-            setMainMedia(eventToEdit.mainMedia);
-          } else if (eventToEdit.image_url) {
-            setMainMedia([{ url: eventToEdit.image_url, type: 'image' }]);
-          }
+        if (eventToEdit.more_info) setHighlights(eventToEdit.more_info);
+        if (eventToEdit.ticketCategories && eventToEdit.ticketCategories.length > 0) {
+          setTicketCategories(eventToEdit.ticketCategories);
+        }
+        if (eventToEdit.financials) {
+          setGstEnabled(eventToEdit.financials.gstEnabled || false);
+          setCgstRate(eventToEdit.financials.cgstRate || 9);
+          setSgstRate(eventToEdit.financials.sgstRate || 9);
+          setConvenienceFeeEnabled(eventToEdit.financials.platformFeeEnabled || eventToEdit.financials.convenienceFeeEnabled || false);
+          setConvenienceFeeRate(eventToEdit.financials.platformFeeRate || eventToEdit.financials.convenienceFeeRate || 0);
+          setConvenienceFeeType(eventToEdit.financials.platformFeeType || eventToEdit.financials.convenienceFeeType || 'percentage');
+        }
 
-          if (eventToEdit.layoutMedia && eventToEdit.layoutMedia.length > 0) {
-            setLayoutMedia(eventToEdit.layoutMedia);
-          } else if (eventToEdit.layout_image) {
-            setLayoutMedia([{ url: eventToEdit.layout_image, type: 'image' }]);
-          }
+        setPresenterName(eventToEdit.presenter_name || '');
+        setOrganizerName(eventToEdit.organizer_name || '');
 
-           if (eventToEdit.gates) setGates(eventToEdit.gates || []);
-          if (eventToEdit.gallery && eventToEdit.gallery.length > 0) {
-            setGallery(eventToEdit.gallery);
-            const savedMetadata = eventToEdit.extra_info?.galleryMetadata;
-            if (savedMetadata && Array.isArray(savedMetadata)) {
-              setGalleryMetadata(savedMetadata);
-            } else {
-              setGalleryMetadata(eventToEdit.gallery.map(url => ({ name: url, size: 0, id: url })));
+        if (eventToEdit.extra_info) {
+          setExtraInfo(prev => ({ ...prev, ...eventToEdit.extra_info }));
+        }
+
+        if (eventToEdit.field_config) setFieldConfig(prev => ({ ...prev, ...eventToEdit.field_config }));
+        if (eventToEdit.refund_policy) setRefundPolicy(eventToEdit.refund_policy);
+        if (eventToEdit.entry_policy) setEntryPolicy(eventToEdit.entry_policy);
+        if (eventToEdit.support_email) setSupportEmail(eventToEdit.support_email);
+        if (eventToEdit.support_phone) setSupportPhone(eventToEdit.support_phone);
+
+        if (eventToEdit.mainMedia && Array.isArray(eventToEdit.mainMedia) && eventToEdit.mainMedia.length > 0) {
+          setMainMedia((eventToEdit.mainMedia as (string | MediaItem)[]).map(m => {
+            if (typeof m === 'string') {
+              const cleanUrl = stripApiUrl(m);
+              const isVideo = cleanUrl.toLowerCase().split('?')[0].match(/\.(mp4|webm|mov|ogg|quicktime|m4v)$/) !== null;
+              return { url: cleanUrl, type: isVideo ? 'video' : 'image' };
             }
+            return { ...(m as MediaItem), url: stripApiUrl((m as MediaItem).url) };
+          }));
+        } else if (eventToEdit.image_url || eventToEdit.video_url) {
+          const media = [];
+          if (eventToEdit.image_url) media.push({ url: stripApiUrl(eventToEdit.image_url), type: 'image' });
+          if (eventToEdit.video_url) media.push({ url: stripApiUrl(eventToEdit.video_url), type: 'video' });
+          setMainMedia(media as MediaItem[]);
+        }
+
+        if (eventToEdit.layoutMedia && Array.isArray(eventToEdit.layoutMedia) && eventToEdit.layoutMedia.length > 0) {
+          setLayoutMedia((eventToEdit.layoutMedia as (string | MediaItem)[]).map(m => {
+            if (typeof m === 'string') return { url: stripApiUrl(m), type: 'image' };
+            return { ...(m as MediaItem), url: stripApiUrl((m as MediaItem).url) };
+          }));
+        } else if (eventToEdit.layout_image) {
+          setLayoutMedia([{ url: stripApiUrl(eventToEdit.layout_image), type: 'image' }]);
+        }
+
+        if (eventToEdit.video_url && eventToEdit.video_url.includes('http') && !eventToEdit.video_url.includes('ticketliv')) {
+          setVideoLink(eventToEdit.video_url);
+        }
+
+        if (eventToEdit.gates) setGates(eventToEdit.gates || []);
+        if (eventToEdit.gallery && eventToEdit.gallery.length > 0) {
+          const cleanGallery = eventToEdit.gallery.map((url: string) => stripApiUrl(url));
+          setGallery(cleanGallery);
+          const savedMetadata = eventToEdit.extra_info?.galleryMetadata;
+          if (savedMetadata && Array.isArray(savedMetadata)) {
+            setGalleryMetadata(savedMetadata.map(m => ({ ...m, id: stripApiUrl(m.id) })));
+          } else {
+            setGalleryMetadata(cleanGallery.map((url: string) => ({ name: url, size: 0, id: url })));
           }
         }
       }
-    };
-    loadEvent();
-  }, [editId, events, existingEvent]);
+    }
+  }, [editId, events, getTimeComponents]);
+
+  useEffect(() => {
+    if (editId) {
+      loadEventData();
+    }
+  }, [editId, events, loadEventData]);
 
 
 
@@ -358,8 +444,9 @@ const CreateEvent = () => {
             if (draft.layoutMedia) setLayoutMedia(draft.layoutMedia);
             if (draft.gallery) {
               setGallery(draft.gallery);
-              setGalleryMetadata(draft.gallery.map((url: string) => ({ name: url, size: 0, id: url })));
+              setGalleryMetadata(draft.gallery.map((url: string) => ({ name: url, size: 0, id: url, file: null })));
             }
+            if (draft.videoLink) setVideoLink(draft.videoLink);
           } catch (e) {
             console.error("Failed to load draft", e);
           }
@@ -371,39 +458,60 @@ const CreateEvent = () => {
 
   // Auto-Save Logic
   useEffect(() => {
-    // Only save if we are not in edit mode, and have at least a title
-    if (!editId && title.trim() !== '') {
+    // Auto-save any form progress
+    if (!editId) {
       const saveTimer = setTimeout(() => {
         const draftData = {
           title, presenterName, organizerName, date, time, location, description, venueAddress, mapUrl, termsStr,
           selectedCategoryIds, extraInfo, highlights,
           ticketCategories, gstEnabled, cgstRate, sgstRate, convenienceFeeEnabled, convenienceFeeRate, convenienceFeeType,
-          mainMedia,
-          layoutMedia,
+          mainMedia: mainMedia.map(m => ({ url: m.url, type: m.type })),
+          layoutMedia: layoutMedia.map(m => ({ url: m.url, type: m.type })),
+          gallery,
+          videoLink,
           timestamp: Date.now()
         };
         localStorage.setItem('ticketliv_event_draft', JSON.stringify(draftData));
-        // Draft saved to localStorage
-      }, 2000); // 2 second delay for stability
+        // Draft saved
+      }, 2000);
       return () => clearTimeout(saveTimer);
     }
   }, [
     title, presenterName, organizerName, date, time, location, description, venueAddress, mapUrl, termsStr,
     selectedCategoryIds, extraInfo, highlights,
     ticketCategories, gstEnabled, cgstRate, sgstRate, convenienceFeeEnabled, convenienceFeeRate, convenienceFeeType,
-    mainMedia, layoutMedia, gallery, galleryMetadata, sponsors, prohibitedItems, refundPolicy, entryPolicy, supportEmail, supportPhone, fieldConfig, editId, gates
+    mainMedia, layoutMedia, gallery, galleryMetadata, sponsors, prohibitedItems, refundPolicy, entryPolicy, supportEmail, supportPhone, fieldConfig, editId, gates, videoLink
   ]);
 
 
-  const handleMediaAdd = (type: 'main' | 'layout', mediaType: 'image' | 'video', e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMediaAdd = async (type: 'main' | 'layout', mediaType: 'image' | 'video', e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const url = URL.createObjectURL(file);
-      const newItem: MediaItem = { url, type: mediaType, file };
+      const processedFile = mediaType === 'image' ? await compressImage(file) : file;
+      const localUrl = URL.createObjectURL(processedFile);
+      
+      // Add immediately with local URL for preview
+      const newItem: MediaItem = { url: localUrl, type: mediaType, file: processedFile };
       if (type === 'main') {
         setMainMedia(prev => [...prev, newItem]);
       } else {
         setLayoutMedia(prev => [...prev, newItem]);
+      }
+
+      // Start background upload immediately
+      try {
+        const remoteUrl = await uploadFile(processedFile);
+        const finalUrl = stripApiUrl(remoteUrl);
+        
+        // Update with remote URL when done
+        if (type === 'main') {
+          setMainMedia(prev => prev.map(m => m.url === localUrl ? { ...m, url: finalUrl, file: undefined } : m));
+        } else {
+          setLayoutMedia(prev => prev.map(m => m.url === localUrl ? { ...m, url: finalUrl, file: undefined } : m));
+        }
+        console.log(`[Background Upload] Completed for ${type} media.`);
+      } catch (err) {
+        toast.error("Background upload failed. We will retry on save.");
       }
     }
   };
@@ -452,7 +560,7 @@ const CreateEvent = () => {
     setHighlights(newHighlights);
   };
 
-  const handleGalleryUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
       const newFiles = Array.from(files);
@@ -460,13 +568,9 @@ const CreateEvent = () => {
       const duplicateNames: string[] = [];
 
       newFiles.forEach(file => {
-        // Check if file is already in metadata (current session)
         const isDuplicate = galleryMetadata.some(m => m.name === file.name && m.size === file.size);
-        if (!isDuplicate) {
-          uniqueNewFiles.push(file);
-        } else {
-          duplicateNames.push(file.name);
-        }
+        if (!isDuplicate) uniqueNewFiles.push(file);
+        else duplicateNames.push(file.name);
       });
 
       if (duplicateNames.length > 0) {
@@ -474,16 +578,34 @@ const CreateEvent = () => {
       }
 
       if (uniqueNewFiles.length > 0) {
-        const newImages = uniqueNewFiles.map(file => URL.createObjectURL(file));
-        const newMeta = uniqueNewFiles.map((file, i) => ({
-          name: file.name,
-          size: file.size,
-          id: newImages[i],
-          file: file
+        const processedFiles = await Promise.all(uniqueNewFiles.map(async (f) => {
+          return f.type.startsWith('image/') ? await compressImage(f) : f;
         }));
 
-        setGallery([...gallery, ...newImages]);
-        setGalleryMetadata([...galleryMetadata, ...newMeta]);
+        const newImages = processedFiles.map(f => URL.createObjectURL(f));
+        const newMeta = processedFiles.map((f, i) => ({
+          name: f.name,
+          size: f.size,
+          id: newImages[i],
+          file: f
+        }));
+
+        setGallery(prev => [...prev, ...newImages]);
+        setGalleryMetadata(prev => [...prev, ...newMeta]);
+
+        // Background upload for gallery items
+        processedFiles.forEach(async (file, index) => {
+          const localId = newImages[index];
+          try {
+            const remoteUrl = await uploadFile(file);
+            const finalUrl = stripApiUrl(remoteUrl);
+            
+            setGallery(prev => prev.map(u => u === localId ? finalUrl : u));
+            setGalleryMetadata(prev => prev.map(m => m.id === localId ? { ...m, id: finalUrl, file: undefined } : m));
+          } catch (err) {
+            console.error(`[Background Upload] Gallery item failed:`, file.name);
+          }
+        });
       }
     }
   };
@@ -544,27 +666,108 @@ const CreateEvent = () => {
     }
   };
 
+  const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
+
+  // Helper for image compression
+  const compressImage = async (file: File): Promise<File> => {
+    // Skip if not transformable or already tiny
+    if (!file.type.startsWith('image/') || file.type.includes('svg') || file.size < 200 * 1024) return file;
+    
+    return new Promise((resolve) => {
+      const img = new Image();
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          const MAX_DIM = 1600;
+          if (width > MAX_DIM || height > MAX_DIM) {
+            if (width > height) {
+              height = (height / width) * MAX_DIM;
+              width = MAX_DIM;
+            } else {
+              width = (width / height) * MAX_DIM;
+              height = MAX_DIM;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          canvas.toBlob((blob) => {
+            if (blob) {
+              const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", { type: 'image/jpeg' });
+              console.log(`[Performance] Compressed ${file.name}: ${(file.size/1024).toFixed(0)}KB -> ${(compressedFile.size/1024).toFixed(0)}KB`);
+              resolve(compressedFile);
+            } else {
+              resolve(file);
+            }
+          }, 'image/jpeg', 0.82); 
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   const removeGate = (index: number) => {
     setGates(gates.filter((_, i) => i !== index));
   };
 
-  const uploadFile = async (file: File) => {
+  const uploadFile = async (file: File | Blob) => {
+    if (!file) throw new Error("Invalid file selection");
+
     const formData = new FormData();
     formData.append('file', file);
-    const res = await api.post('/media/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    }) as any;
-    if (res?.success && res.data?.url) {
-      return res.data.url;
+    const uploadId = Math.random().toString(36).substring(7);
+
+    setUploadProgress(prev => ({ ...prev, [uploadId]: 0 }));
+    const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+
+    try {
+      const response = await axios.post(`${CONFIG.API_URL}/media/upload`, formData, {
+        headers: { 'Authorization': `Bearer ${token}` },
+        onUploadProgress: (p) => {
+          if (p.total) {
+            const percent = Math.round((p.loaded * 100) / p.total);
+            setUploadProgress(prev => ({ ...prev, [uploadId]: percent }));
+          }
+        }
+      });
+      const res = response.data as { success: boolean, data?: { url: string } };
+      if (res?.success && res.data?.url) {
+        setUploadProgress(prev => {
+          const next = { ...prev };
+          delete next[uploadId];
+          return next;
+        });
+        return res.data.url;
+      }
+      throw new Error('Upload failed');
+    } catch (error) {
+      setUploadProgress(prev => {
+        const next = { ...prev };
+        delete next[uploadId];
+        return next;
+      });
+      throw error;
     }
-    throw new Error('File upload failed');
   };
 
 
+  const isUploadPending = Object.keys(uploadProgress).length > 0;
+  const globalUploadPercent = isUploadPending 
+    ? Math.round(Object.values(uploadProgress).reduce((a, b) => a + b, 0) / Object.keys(uploadProgress).length)
+    : 0;
+
   const handleSubmit = async (status: 'Live' | 'Cancelled' | 'Sold Out' | 'Completed' | 'Draft') => {
-    if (isSubmitting) return;
+    if (isSubmitting || isUploadPending) return;
     setIsSubmitting(true);
-    
+
     if (!title.trim()) {
       toast.error("Event Title is required!");
       setIsSubmitting(false);
@@ -583,38 +786,43 @@ const CreateEvent = () => {
     const toastId = toast.loading(status === 'Draft' ? "Saving draft..." : "Publishing event...");
 
     try {
-      // 1. Upload Main Media files
-      const finalMainMedia = await Promise.all(mainMedia.map(async (item) => {
-        if (item.file) {
-          const url = await uploadFile(item.file);
-          return { ...item, url, file: undefined };
-        }
-        return item;
-      }));
+      // 1-3. Upload All Media in Parallel to maximize bandwidth
+      const [finalMainMedia, finalLayoutMedia, finalGalleryUrls] = await Promise.all([
+        Promise.all(mainMedia.map(async (item) => {
+          if (item.file) {
+            const url = await uploadFile(item.file);
+            return { ...item, url: stripApiUrl(url), file: undefined };
+          }
+          return { ...item, url: stripApiUrl(item.url), file: undefined };
+        })),
+        Promise.all(layoutMedia.map(async (item) => {
+          if (item.file) {
+            const url = await uploadFile(item.file);
+            return { ...item, url: stripApiUrl(url), file: undefined };
+          }
+          return { ...item, url: stripApiUrl(item.url), file: undefined };
+        })),
+        Promise.all(galleryMetadata.map(async (m) => {
+          if (m.file) {
+            const url = await uploadFile(m.file);
+            return stripApiUrl(url);
+          }
+          return stripApiUrl(m.id);
+        }))
+      ]);
 
-      // 2. Upload Layout Media files
-      const finalLayoutMedia = await Promise.all(layoutMedia.map(async (item) => {
-        if (item.file) {
-          const url = await uploadFile(item.file);
-          return { ...item, url, file: undefined };
-        }
-        return item;
-      }));
-
-      // 3. Upload Gallery files
-      const finalGalleryUrls = await Promise.all(galleryMetadata.map(async (m) => {
-        if (m.file) {
-          return await uploadFile(m.file);
-        }
-        return m.id; // Existing URL
-      }));
-
-      // 4. Update Gallery Metadata with new URLs
+      // 4. Update states and metadata
+      setMainMedia(finalMainMedia);
+      setLayoutMedia(finalLayoutMedia);
+      setGallery(finalGalleryUrls);
+      
       const finalGalleryMetadata = galleryMetadata.map((m, i) => ({
         name: m.name,
         size: m.size,
-        id: finalGalleryUrls[i]
+        id: finalGalleryUrls[i],
+        file: undefined
       }));
+      setGalleryMetadata(finalGalleryMetadata);
 
       const eventPayload = {
         title,
@@ -634,7 +842,7 @@ const CreateEvent = () => {
         ticketCategories,
         price: ticketCategories.length > 0 ? Number(ticketCategories[0].price) : 0,
         image_url: finalMainMedia.find(m => m.type === 'image')?.url || '',
-        video_url: finalMainMedia.find(m => m.type === 'video')?.url || '',
+        video_url: videoLink || finalMainMedia.find(m => m.type === 'video')?.url || '',
         presenter_name: presenterName,
         organizer_name: organizerName,
         more_info: highlights,
@@ -667,6 +875,11 @@ const CreateEvent = () => {
       if (editId) {
         await updateEvent(editId, eventPayload as Partial<AppEvent>);
         toast.success(status === 'Draft' ? "Draft Saved Successfully!" : `Event ${status === 'Cancelled' ? 'Cancelled' : 'Updated'} Successfully!`, { id: toastId });
+
+        // Final fallback: Refresh local data from context after the update
+        setTimeout(() => {
+          loadEventData();
+        }, 500);
       } else {
         await addEvent(eventPayload as unknown as AppEvent);
         // Clear local backup once saved to cloud/DB
@@ -681,12 +894,65 @@ const CreateEvent = () => {
         toast.success(successMsg, { id: toastId });
       }
       navigate('/events');
-    } catch (err: any) {
-      console.error('Submit Error:', err);
-      toast.error(`Failed to save event: ${err.message || 'Check your connection.'}`, { id: toastId });
+    } catch (error: unknown) {
+      console.error('Submit Error:', error);
+      const err = error as { message?: string };
+      // Backend error might be a string (from API interceptor) or an object
+      const errorMsg = typeof err === 'string' ? err : (err.message || 'Check your connection.');
+      toast.error(`Failed to save event: ${errorMsg}`, { id: toastId });
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const resetForm = () => {
+    setTitle('');
+    setPresenterName('');
+    setOrganizerName('');
+    setDate('');
+    setTime('');
+    setLocation('');
+    setDescription('');
+    setVenueAddress('');
+    setMapUrl('');
+    setTermsStr('Standard Terms Apply');
+    setSelectedCategoryIds([]);
+    setExtraInfo({ specialInstructions: '', maxTicketsPerUser: 'unlimited' });
+    setHighlights([]);
+    setMainMedia([]);
+    setLayoutMedia([]);
+    setTicketCategories([{ id: 1, name: 'General Admission', price: 0, capacity: 100, sales: 0, max_limit: 10 }]);
+    setGallery([]);
+    setGalleryMetadata([]);
+    setSponsors([]);
+    setProhibitedItems([]);
+    setRefundPolicy('Non-refundable unless event is cancelled.');
+    setEntryPolicy('Valid Govt ID required at entrance.');
+    setSupportEmail('');
+    setSupportPhone('');
+    setVideoLink('');
+    setGstEnabled(false);
+    setCgstRate(9);
+    setSgstRate(9);
+    setConvenienceFeeEnabled(false);
+    setConvenienceFeeRate(0);
+    setConvenienceFeeType('percentage');
+    setExistingEvent(null);
+    setGates([]);
+    localStorage.removeItem('ticketliv_event_draft');
+  };
+
+  const clearAll = () => {
+    setShowClearConfirm(true);
+  };
+
+  const confirmClear = () => {
+    resetForm();
+    if (editId) {
+      navigate('/create');
+    }
+    setShowClearConfirm(false);
+    toast.success('Form cleared successfully');
   };
 
   return (
@@ -702,7 +968,31 @@ const CreateEvent = () => {
               <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '2px 0 0 0', fontWeight: 500 }}>{editId ? 'Refine your event details and manage its current status for your audience.' : 'Tell us about your event to get it listed on the TicketLiv mobile app.'}</p>
             </div>
           </div>
-          <div />
+          <div>
+            <button
+              type="button"
+              onClick={clearAll}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 18px',
+                background: 'rgba(244, 63, 94, 0.1)',
+                border: '1px solid rgba(244, 63, 94, 0.2)',
+                borderRadius: '12px',
+                color: '#f43f5e',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(244, 63, 94, 0.2)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(244, 63, 94, 0.1)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+            >
+              <Trash2 size={16} />
+              Clear All
+            </button>
+          </div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -875,74 +1165,113 @@ const CreateEvent = () => {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '32px' }}>
               {/* Primary Showcase Area */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                  <div>
-                    <label style={labelStyle}>Primary Media (Posters & Teasers)</label>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '10px', margin: 0 }}>These will be the first things users see on the event page.</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                    <div>
+                      <label style={labelStyle}>Primary Media (Posters & Teasers)</label>
+                      <p style={{ color: 'var(--text-muted)', fontSize: '10px', margin: 0 }}>Upload posters or paste a teaser video link.</p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                      <button type="button" onClick={() => document.getElementById('main-image-upload')?.click()} style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(236,72,153,0.15)', color: '#ec4899', padding: '12px 24px', borderRadius: '16px', fontSize: '14px', fontWeight: 700, border: '1px solid rgba(236,72,153,0.3)', transition: 'all 0.2s', cursor: 'pointer' }}>
+                        <Camera size={20} /> + Image
+                      </button>
+                      <button type="button" onClick={() => document.getElementById('main-video-upload')?.click()} style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(236,72,153,0.15)', color: '#ec4899', padding: '12px 24px', borderRadius: '16px', fontSize: '14px', fontWeight: 700, border: '1px solid rgba(236,72,153,0.3)', transition: 'all 0.2s', cursor: 'pointer' }}>
+                        <Video size={20} /> + Video
+                      </button>
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button type="button" onClick={() => document.getElementById('main-image-upload')?.click()} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(236,72,153,0.1)', color: '#ec4899', padding: '6px 14px', borderRadius: '10px', fontSize: '11px', fontWeight: 700, border: '1px solid rgba(236,72,153,0.2)' }}>
-                      <Camera size={14} /> + Image
-                    </button>
-                    <button type="button" onClick={() => document.getElementById('main-video-upload')?.click()} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(236,72,153,0.1)', color: '#ec4899', padding: '6px 14px', borderRadius: '10px', fontSize: '11px', fontWeight: 700, border: '1px solid rgba(236,72,153,0.2)' }}>
-                      <Video size={14} /> + Video
-                    </button>
-                  </div>
-                  <input id="main-image-upload" type="file" accept="image/jpeg,image/png,image/webp,image/jpg" style={{ display: 'none' }} onChange={(e) => handleMediaAdd('main', 'image', e)} />
-                  <input id="main-video-upload" type="file" accept="video/mp4,video/webm,video/ogg,video/quicktime" style={{ display: 'none' }} onChange={(e) => handleMediaAdd('main', 'video', e)} />
-                </div>
 
-                <div style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', 
-                  gap: '12px', 
-                  background: 'rgba(255,255,255,0.01)', 
-                  padding: '16px', 
-                  borderRadius: '20px', 
-                  border: '1px solid rgba(255,255,255,0.05)', 
-                  minHeight: '180px',
-                  alignContent: 'start',
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label style={{ ...labelStyle, fontSize: '10px', marginBottom: '8px' }}>Video / Teaser Link</label>
+                    <div style={{ position: 'relative' }}>
+                      <Video size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#ec4899', opacity: 0.6 }} />
+                      <input
+                        type="text"
+                        value={videoLink}
+                        onChange={(e) => setVideoLink(e.target.value)}
+                        placeholder="Paste YouTube or Vimeo link..."
+                        style={{ ...inputStyle, paddingLeft: '48px', background: 'rgba(255,255,255,0.03)', fontSize: '14px' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <input id="main-image-upload" type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleMediaAdd('main', 'image', e)} />
+                <input id="main-video-upload" type="file" accept="video/*" style={{ display: 'none' }} onChange={(e) => handleMediaAdd('main', 'video', e)} />
+
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  gap: '24px',
+                  background: 'rgba(255,255,255,0.02)',
+                  backdropFilter: 'blur(12px)',
+                  padding: '32px',
+                  borderRadius: '32px',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
                   alignItems: 'start'
                 }}>
                   {mainMedia.map((item, idx) => (
-                    <div key={idx} className="media-preview-card" style={{ 
-                      position: 'relative', 
-                      borderRadius: '16px', 
-                      overflow: 'hidden', 
-                      border: '1px solid rgba(255,255,255,0.1)', 
+                    <div key={idx} className="media-preview-card" style={{
+                      position: 'relative',
+                      borderRadius: '24px',
+                      overflow: 'hidden',
+                      border: '1px solid rgba(255,255,255,0.1)',
                       width: '100%',
-                      background: 'rgb(10, 10, 15)',
-                      transition: 'all 0.3s ease',
-                      boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
+                      aspectRatio: '3/2',
+                      background: 'rgba(255,255,255,0.05)',
+                      transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                      boxShadow: '0 8px 30px rgba(0,0,0,0.4)'
                     }}>
                       {item.type === 'video' ? (
-                        <video src={getMediaUrl(item.url)} style={{ width: '100%', height: 'auto', display: 'block', maxHeight: '400px' }} controls muted />
+                        item.url.includes('youtube.com') || item.url.includes('youtu.be') ? (
+                          <iframe
+                            src={`https://www.youtube.com/embed/${item.url.includes('v=') ? item.url.split('v=')[1].split('&')[0] : item.url.split('/').pop()}`}
+                            style={{ width: '100%', height: '100%', border: 'none' }}
+                            allowFullScreen
+                          />
+                        ) : (
+                          <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                            <video
+                              src={getMediaUrl(item.url)}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                              controls muted
+                              onError={(e) => {
+                                const parent = e.currentTarget.parentElement;
+                                if (parent) parent.innerHTML = `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,255,255,0.02);color:rgba(255,255,255,0.3);gap:8px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.66 6H14a2 2 0 0 1 2 2v2.5l5.24-3.03A.5.5 0 0 1 22 7.9v8.2a.5.5 0 0 1-.76.43L16 13.5V16c0 .34-.08.66-.23.94"/><path d="m2 2 20 20"/><path d="M7.44 7.44A2 2 0 0 0 6 9v6a2 2 0 0 0 2 2h7l0 0"/></svg><p style="font-size:10px;font-weight:700;margin:0;text-transform:uppercase;letter-spacing:1px;">Video Error</p></div>`;
+                              }}
+                            />
+                          </div>
+                        )
                       ) : (
-                        <img src={getMediaUrl(item.url)} style={{ width: '100%', height: 'auto', display: 'block', maxHeight: '400px' }} />
+                        <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                          <img
+                            src={getMediaUrl(item.url)}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                            onError={(e) => {
+                              const parent = e.currentTarget.parentElement;
+                              if (parent) parent.innerHTML = `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,255,255,0.02);color:rgba(255,255,255,0.3);gap:8px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M10.41 10.41a2 2 0 1 1-2.83-2.83"/><line x1="14.5" y1="9.5" x2="14.5" y2="9.51"/><path d="M4.14 11.72C2.89 12.48 2 13.75 2 15v4a2 2 0 0 0 2 2h15c.31 0 .6-.07.87-.21"/><path d="m15.89 15.89-4.79-4.79"/><path d="m9.67 14.96-7.44 4.6"/><path d="M21.01 15.39c.62-.38 1-.99 1-1.63V5a2 2 0 0 0-2-2H8.38C7.74 3 7.13 3.38 6.75 4"/></svg><p style="font-size:10px;font-weight:700;margin:0;text-transform:uppercase;letter-spacing:1px;">Image Error</p></div>`;
+                            }}
+                          />
+                        </div>
                       )}
-                      <div style={{ 
-                        position: 'absolute', 
-                        top: '10px', 
-                        right: '10px',
+                      <div style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'rgba(0,0,0,0.7)',
                         display: 'flex',
-                        gap: '6px'
-                      }}>
-                        <button type="button" onClick={() => removeMediaItem('main', idx)} style={{ background: 'rgba(244,63,94,0.85)', border: 'none', color: '#fff', padding: '6px', borderRadius: '8px', cursor: 'pointer', display: 'flex', backdropFilter: 'blur(4px)', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
-                          <Trash2 size={14} />
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        opacity: 0,
+                        transition: 'opacity 0.2s',
+                        backdropFilter: 'blur(6px)',
+                        zIndex: 100
+                      }} onMouseOver={(e) => e.currentTarget.style.opacity = '1'} onMouseOut={(e) => e.currentTarget.style.opacity = '0'}>
+                        <button type="button" onClick={() => removeMediaItem('main', idx)} style={{ background: '#f43f5e', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: '16px', cursor: 'pointer', fontSize: '14px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 8px 20px rgba(244,63,94,0.3)' }}>
+                          <Trash2 size={20} /> Remove {item.type}
                         </button>
-                      </div>
-                      <div style={{ 
-                        position: 'absolute', 
-                        bottom: 0, 
-                        left: 0, 
-                        right: 0, 
-                        padding: '8px 12px', 
-                        background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)',
-                      }}>
-                        <span style={{ fontSize: '9px', fontWeight: 800, color: '#fff', textTransform: 'uppercase', letterSpacing: '1px' }}>{item.type}</span>
                       </div>
                     </div>
                   ))}
@@ -964,41 +1293,60 @@ const CreateEvent = () => {
                     <label style={labelStyle}>Venue Navigation & Maps</label>
                     <p style={{ color: 'var(--text-muted)', fontSize: '10px', margin: 0 }}>Help your attendees find the venue and their way inside.</p>
                   </div>
-                  <button type="button" onClick={() => document.getElementById('layout-media-upload')?.click()} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(59,130,246,0.1)', color: '#3b82f6', padding: '6px 14px', borderRadius: '10px', fontSize: '11px', fontWeight: 700, border: '1px solid rgba(59,130,246,0.2)' }}>
-                    <MapPin size={14} /> + Add Map
+                  <button type="button" onClick={() => document.getElementById('layout-media-upload')?.click()} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(59,130,246,0.15)', color: '#3b82f6', padding: '10px 20px', borderRadius: '12px', fontSize: '13px', fontWeight: 700, border: '1px solid rgba(59,130,246,0.3)', transition: 'all 0.2s', cursor: 'pointer' }}>
+                    <MapPin size={18} /> + Add Map
                   </button>
                   <input id="layout-media-upload" type="file" accept="image/jpeg,image/png,image/webp,image/jpg" style={{ display: 'none' }} onChange={(e) => handleMediaAdd('layout', 'image', e)} />
                 </div>
 
-                <div style={{ background: 'rgba(255,255,255,0.01)', padding: '16px', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.05)', flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div className="form-group">
-                    <label style={{ ...labelStyle, fontSize: '10px', marginBottom: '8px' }}>Google Maps Link</label>
+                <div style={{
+                  background: 'rgba(255,255,255,0.02)',
+                  backdropFilter: 'blur(12px)',
+                  padding: '32px',
+                  borderRadius: '32px',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '32px',
+                  boxShadow: '0 20px 50px rgba(0,0,0,0.3)'
+                }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label style={{ ...labelStyle, fontSize: '11px', marginBottom: '10px' }}>Google Maps Link</label>
                     <div style={{ position: 'relative' }}>
-                      <Globe size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#3b82f6', opacity: 0.6 }} />
-                      <input 
-                        type="text" 
-                        value={mapUrl} 
-                        onChange={(e) => setMapUrl(e.target.value)} 
-                        placeholder="Paste Google Maps Sharing Link..." 
-                        style={{ ...inputStyle, paddingLeft: '40px', background: 'rgba(255,255,255,0.03)', fontSize: '12px' }} 
+                      <Globe size={20} style={{ position: 'absolute', left: '18px', top: '50%', transform: 'translateY(-50%)', color: '#3b82f6', opacity: 0.6 }} />
+                      <input
+                        type="text"
+                        value={mapUrl}
+                        onChange={(e) => setMapUrl(e.target.value)}
+                        placeholder="Paste Google Maps Sharing Link..."
+                        style={{ ...inputStyle, paddingLeft: '56px', background: 'rgba(255,255,255,0.03)', fontSize: '14px' }}
                       />
                     </div>
                   </div>
 
-                  <div style={{ minHeight: '120px', borderRadius: '16px', overflow: 'hidden', border: '1px dashed rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', background: 'rgba(0,0,0,0.2)' }}>
+                  <div style={{ position: 'relative', width: '100%', aspectRatio: '3/2', borderRadius: '24px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {layoutMedia.length > 0 ? (
-                      <div style={{ width: '100%', textAlign: 'center' }}>
-                        <img src={getMediaUrl(layoutMedia[0].url)} style={{ width: '100%', height: 'auto', maxHeight: '300px', display: 'block' }} />
-                        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s', backdropFilter: 'blur(2px)' }} onMouseOver={(e) => e.currentTarget.style.opacity = '1'} onMouseOut={(e) => e.currentTarget.style.opacity = '0'}>
-                          <button type="button" onClick={() => removeMediaItem('layout', 0)} style={{ background: '#f43f5e', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '12px', cursor: 'pointer', fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Trash2 size={16} /> Remove Map
+                      <div style={{ width: '100%', height: '100%' }}>
+                        <img
+                          src={getMediaUrl(layoutMedia[0].url)}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                          onError={(e) => {
+                            const parent = e.currentTarget.parentElement;
+                            if (parent) parent.innerHTML = `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,255,255,0.02);color:rgba(255,255,255,0.3);gap:8px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.434 2.52a8 8 0 0 0-11.232 11.232"/><path d="M9.108 17.552a.75.75 0 0 0 1.059 0l3.058-3.058"/><path d="m2 2 20 20"/><path d="M12 12A8 8 0 0 0 8.5 21.042"/><path d="M12 3a8 8 0 0 1 8 8c0 1.405-.362 2.768-.992 4.02"/></svg><p style="font-size:10px;font-weight:700;margin:0;text-transform:uppercase;letter-spacing:1px;">Map Error</p></div>`;
+                          }}
+                        />
+                        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s', backdropFilter: 'blur(8px)' }} onMouseOver={(e) => e.currentTarget.style.opacity = '1'} onMouseOut={(e) => e.currentTarget.style.opacity = '0'}>
+                          <button type="button" onClick={() => removeMediaItem('layout', 0)} style={{ background: '#f43f5e', color: '#fff', border: 'none', padding: '14px 28px', borderRadius: '16px', cursor: 'pointer', fontSize: '15px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 10px 25px rgba(244,63,94,0.4)', transition: 'all 0.2s' }}>
+                            <Trash2 size={20} /> Remove Map
                           </button>
                         </div>
                       </div>
                     ) : (
-                      <div style={{ textAlign: 'center', opacity: 0.3 }}>
-                        <MapPin size={24} style={{ marginBottom: '8px' }} />
-                        <p style={{ fontSize: '11px', fontWeight: 500 }}>Upload Venue Layout Image</p>
+                      <div style={{ textAlign: 'center', opacity: 0.2 }}>
+                        <div style={{ background: 'rgba(255,255,255,0.05)', padding: '24px', borderRadius: '24px', display: 'inline-block', marginBottom: '16px' }}>
+                          <MapPin size={40} />
+                        </div>
+                        <p style={{ fontSize: '15px', fontWeight: 700 }}>Venue navigation map will appear here</p>
                       </div>
                     )}
                   </div>
@@ -1365,65 +1713,144 @@ const CreateEvent = () => {
               </button>
             </div>
 
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', 
-              gap: '16px',
-              marginTop: '12px',
-              alignItems: 'start'
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+              alignItems: 'flex-start',
+              gap: '20px',
+              marginTop: '12px'
             }}>
-              {gallery.map((img: string, idx: number) => (
-                <div key={idx} style={{ 
-                  borderRadius: '16px', 
-                  overflow: 'hidden', 
-                  position: 'relative', 
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-                  background: 'rgba(0,0,0,0.2)'
+              {gallery.map((img: string, idx: number) => {
+                // If the URL has an extension, use standard helper. 
+                // If it's a local BLOB, check the raw file metadata from our state.
+                const isVideo = isMediaVideo(img) || (galleryMetadata[idx]?.file?.type?.startsWith('video/'));
+
+                return (
+                  <div key={idx} className="media-preview-card" style={{
+                    position: 'relative',
+                    borderRadius: '20px',
+                    overflow: 'hidden',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    width: '100%',
+                    aspectRatio: '4/3',
+                    background: 'rgba(255,255,255,0.05)',
+                    transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                  }}>
+                    {isVideo ? (
+                      img.includes('youtube.com') || img.includes('youtu.be') ? (
+                        <iframe
+                          src={`https://www.youtube.com/embed/${img.includes('v=') ? img.split('v=')[1].split('&')[0] : img.split('/').pop()}`}
+                          style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+                          allowFullScreen
+                        />
+                      ) : (
+                        <video
+                          src={getMediaUrl(img)}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                          controls muted
+                          onError={(e) => {
+                            console.error('❌ Gallery Video Failed:', getMediaUrl(img));
+                            (e.target as HTMLVideoElement).poster = 'https://placehold.co/600x400/181824/white?text=Video+Error';
+                          }}
+                        />
+                      )
+                    ) : (
+                      <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                        <img
+                          src={getMediaUrl(img)}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                          onError={(e) => {
+                            const parent = e.currentTarget.parentElement;
+                            if (parent) parent.innerHTML = `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,255,255,0.02);color:rgba(255,255,255,0.3);gap:6px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-image-off"><line x1="2" y1="2" x2="22" y2="22"/><path d="M10.41 10.41a2 2 0 1 1-2.83-2.83"/><line x1="14.5" y1="9.5" x2="14.5" y2="9.51"/><path d="M4.14 11.72C2.89 12.48 2 13.75 2 15v4a2 2 0 0 0 2 2h15c.31 0 .6-.07.87-.21"/><path d="m15.89 15.89-4.79-4.79"/><path d="m9.67 14.96-7.44 4.6"/><path d="M21.01 15.39c.62-.38 1-.99 1-1.63V5a2 2 0 0 0-2-2H8.38C7.74 3 7.13 3.38 6.75 4"/></svg><p style="font-size:8px;font-weight:700;margin:0;text-transform:uppercase;letter-spacing:1px;text-align:center;">Image Error</p></div>`;
+                          }}
+                        />
+                      </div>
+                    )}
+                    <div style={{
+                      position: 'absolute',
+                      inset: 0,
+                      background: 'rgba(0,0,0,0.75)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      opacity: 0,
+                      transition: 'opacity 0.2s',
+                      backdropFilter: 'blur(8px)',
+                      zIndex: 100
+                    }} onMouseOver={(e) => e.currentTarget.style.opacity = '1'} onMouseOut={(e) => e.currentTarget.style.opacity = '0'}>
+                      <button type="button" onClick={() => removeGalleryItem(idx)} style={{ background: '#f43f5e', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '12px', cursor: 'pointer', fontSize: '13px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 6px 15px rgba(244,63,94,0.3)' }}>
+                        <Trash2 size={16} /> Remove
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              <label style={{
+                position: 'relative',
+                width: '100%',
+                aspectRatio: '4/3',
+                borderRadius: '24px',
+                border: '2px dashed rgba(255,255,255,0.08)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                background: 'rgba(255,255,255,0.01)',
+                transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                overflow: 'hidden',
+                padding: '12px'
+              }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(249, 115, 22, 0.3)';
+                  e.currentTarget.style.background = 'rgba(249, 115, 22, 0.03)';
+                  e.currentTarget.style.transform = 'scale(0.98)';
+                  e.currentTarget.style.boxShadow = '0 0 20px rgba(249, 115, 22, 0.1)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.01)';
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.boxShadow = 'none';
                 }}>
-                  {img.toLowerCase().endsWith('.mp4') || img.toLowerCase().endsWith('.webm') || galleryMetadata.find(m => m.id === img)?.file?.type.startsWith('video') ? (
-                    <video src={getMediaUrl(img)} style={{ width: '100%', height: 'auto', display: 'block', maxHeight: '400px' }} controls muted />
-                  ) : (
-                    <img src={getMediaUrl(img)} alt="Gallery" style={{ width: '100%', height: 'auto', display: 'block', maxHeight: '400px' }} />
-                  )}
-                  <button onClick={() => removeGalleryItem(idx)} style={{ 
-                    position: 'absolute', 
-                    top: '10px', 
-                    right: '10px', 
-                    background: 'rgba(0,0,0,0.6)', 
-                    backdropFilter: 'blur(8px)',
-                    borderRadius: '50%', 
-                    color: 'white', 
-                    width: '28px', 
-                    height: '28px', 
-                    cursor: 'pointer', 
-                    border: '1px solid rgba(255,255,255,0.2)',
+                <input type="file" multiple accept="image/*,video/*" style={{ display: 'none' }} onChange={handleGalleryUpload} />
+
+                <div style={{ position: 'relative', marginBottom: '12px' }}>
+                  <div style={{
+                    width: '56px',
+                    height: '56px',
+                    background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.2), rgba(236, 72, 153, 0.2))',
+                    borderRadius: '20px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    boxShadow: '0 4px 10px rgba(0,0,0,0.3)'
+                    boxShadow: '0 8px 16px rgba(0,0,0,0.2)',
+                    rotate: '4deg'
                   }}>
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              ))}
-              <label style={{ 
-                aspectRatio: '1', 
-                borderRadius: '20px', 
-                border: '2px dashed rgba(255,255,255,0.1)', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                cursor: 'pointer', 
-                background: 'rgba(255,255,255,0.02)',
-                transition: 'all 0.3s ease'
-              }} onMouseOver={(e) => { e.currentTarget.style.borderColor = 'rgba(249, 115, 22, 0.4)'; e.currentTarget.style.background = 'rgba(249, 115, 22, 0.05)'; }}>
-                <input type="file" multiple accept="image/jpeg,image/png,image/webp,image/jpg,video/mp4,video/webm" style={{ display: 'none' }} onChange={handleGalleryUpload} />
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ background: 'rgba(255,255,255,0.05)', padding: '12px', borderRadius: '16px', marginBottom: '8px', display: 'inline-flex' }}>
-                    <Plus size={24} color="var(--text-muted)" />
+                    <Camera size={24} color="#f97316" style={{ filter: 'drop-shadow(0 0 5px rgba(249,115,22,0.4))' }} />
                   </div>
-                  <p style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Add Media</p>
+                  <div style={{
+                    position: 'absolute',
+                    top: '-6px',
+                    right: '-10px',
+                    width: '32px',
+                    height: '32px',
+                    background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.3), rgba(249, 115, 22, 0.3))',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '2px solid #000',
+                    rotate: '-10deg'
+                  }}>
+                    <Video size={14} color="#ec4899" />
+                  </div>
+                </div>
+
+                <div style={{ textAlign: 'center' }}>
+                  <p style={{ fontSize: '12px', color: '#fff', fontWeight: 700, margin: '0 0 4px 0' }}>Add Memories</p>
+                  <p style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: 500, letterSpacing: '0.3px', margin: 0 }}>Image or Video</p>
                 </div>
               </label>
             </div>
@@ -1658,7 +2085,7 @@ const CreateEvent = () => {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                     <div className="form-group">
                       <label style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', display: 'block' }}>Fee Type</label>
-                      <select value={convenienceFeeType} onChange={(e) => setConvenienceFeeType(e.target.value as any)} style={{ ...inputStyle, padding: '8px' }}>
+                      <select value={convenienceFeeType} onChange={(e) => setConvenienceFeeType(e.target.value as 'fixed' | 'percentage')} style={{ ...inputStyle, padding: '8px' }}>
                         <option value="percentage">Percentage (%)</option>
                         <option value="fixed">Fixed (₹)</option>
                       </select>
@@ -1773,7 +2200,7 @@ const CreateEvent = () => {
           <div className="glass-attached" style={{ padding: '24px', display: 'flex', gap: '16px' }}>
             <button
               type="button"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isUploadPending}
               onClick={() => setConfirmModal({
                 isOpen: true,
                 title: 'Save for later?',
@@ -1796,19 +2223,19 @@ const CreateEvent = () => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                cursor: (isSubmitting || isUploadPending) ? 'not-allowed' : 'pointer',
                 transition: 'all 0.2s',
-                opacity: isSubmitting ? 0.5 : 1
+                opacity: (isSubmitting || isUploadPending) ? 0.5 : 1
               }}
-              onMouseOver={(e) => { if (!isSubmitting) e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
-              onMouseOut={(e) => { if (!isSubmitting) e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+              onMouseOver={(e) => { if (!isSubmitting && !isUploadPending) e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+              onMouseOut={(e) => { if (!isSubmitting && !isUploadPending) e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
             >
-              <FileText size={20} /> {isSubmitting ? 'Wait...' : 'Save for Later'}
+              <FileText size={20} /> {(isSubmitting || isUploadPending) ? (isUploadPending ? `Uploading ${globalUploadPercent}%` : 'Wait...') : 'Save for Later'}
             </button>
 
             <button
               type="button"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isUploadPending}
               onClick={() => setConfirmModal({
                 isOpen: true,
                 title: editId ? 'Update Event?' : 'Publish Event?',
@@ -1833,15 +2260,15 @@ const CreateEvent = () => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                cursor: (isSubmitting || isUploadPending) ? 'not-allowed' : 'pointer',
                 boxShadow: '0 8px 24px var(--glow-primary)',
                 transition: 'transform 0.2s, box-shadow 0.2s',
-                opacity: isSubmitting ? 0.7 : 1
+                opacity: (isSubmitting || isUploadPending) ? 0.7 : 1
               }}
-              onMouseOver={(e) => { if (!isSubmitting) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 12px 30px var(--glow-primary)'; } }}
-              onMouseOut={(e) => { if (!isSubmitting) { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 8px 24px var(--glow-primary)'; } }}
+              onMouseOver={(e) => { if (!isSubmitting && !isUploadPending) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 12px 30px var(--glow-primary)'; } }}
+              onMouseOut={(e) => { if (!isSubmitting && !isUploadPending) { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 8px 24px var(--glow-primary)'; } }}
             >
-              <Save size={20} /> {isSubmitting ? 'Processing...' : (editId ? 'Update Event' : 'Publish Event Now')}
+              <Save size={20} /> {isSubmitting ? 'Processing...' : (isUploadPending ? `Uploading ${globalUploadPercent}%` : (editId ? 'Update Event' : 'Publish Event Now'))}
             </button>
           </div>
         </div>
@@ -1914,28 +2341,172 @@ const CreateEvent = () => {
                 Go Back
               </button>
               <button
-                disabled={isSubmitting}
+                disabled={isSubmitting || isUploadPending}
                 onClick={async () => {
-                   if (confirmModal.status) await handleSubmit(confirmModal.status as any);
-                   setConfirmModal({ ...confirmModal, isOpen: false });
+                  if (confirmModal.status) await handleSubmit(confirmModal.status as 'Live' | 'Cancelled' | 'Sold Out' | 'Completed' | 'Draft');
+                  setConfirmModal({ ...confirmModal, isOpen: false });
                 }}
                 style={{
                   padding: '14px',
                   borderRadius: '14px',
-                  background: confirmModal.confirmColor,
+                  background: (isSubmitting || isUploadPending) ? 'rgba(255,255,255,0.05)' : confirmModal.confirmColor,
                   border: 'none',
-                  color: 'white',
+                  color: (isSubmitting || isUploadPending) ? 'rgba(255,255,255,0.3)' : 'white',
                   fontWeight: 800,
                   fontSize: '15px',
-                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                  boxShadow: `0 8px 20px ${confirmModal.confirmColor}40`,
+                  cursor: (isSubmitting || isUploadPending) ? 'not-allowed' : 'pointer',
+                  boxShadow: (isSubmitting || isUploadPending) ? 'none' : `0 8px 20px ${confirmModal.confirmColor}40`,
                   transition: 'transform 0.2s',
-                  opacity: isSubmitting ? 0.7 : 1
+                  opacity: (isSubmitting || isUploadPending) ? 0.7 : 1
                 }}
-                onMouseOver={(e) => { if (!isSubmitting) e.currentTarget.style.transform = 'translateY(-2px)'; }}
-                onMouseOut={(e) => { if (!isSubmitting) e.currentTarget.style.transform = 'none'; }}
+                onMouseOver={(e) => { if (!isSubmitting && !isUploadPending) e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                onMouseOut={(e) => { if (!isSubmitting && !isUploadPending) e.currentTarget.style.transform = 'none'; }}
               >
-                {isSubmitting ? 'Working...' : confirmModal.confirmText}
+                {(isSubmitting || isUploadPending) ? (isUploadPending ? `Wait ${globalUploadPercent}%` : 'Working...') : confirmModal.confirmText}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Global Upload Progress Tracker */}
+      {Object.keys(uploadProgress).length > 0 && (
+        <div style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          background: 'rgba(15, 23, 42, 0.9)',
+          backdropFilter: 'blur(12px)',
+          padding: '20px',
+          borderRadius: '20px',
+          border: '1px solid rgba(255,255,255,0.1)',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
+          width: '320px',
+          zIndex: 100001,
+          animation: 'fadeInUp 0.3s ease'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+            <div style={{ position: 'relative', width: '40px', height: '40px' }}>
+              <svg viewBox="0 0 36 36" style={{ transform: 'rotate(-90deg)', width: '100%', height: '100%' }}>
+                <circle cx="18" cy="18" r="16" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="3" />
+                <circle cx="18" cy="18" r="16" fill="none" stroke="var(--accent-primary)" strokeWidth="3" 
+                  strokeDasharray={`${(Object.values(uploadProgress).reduce((a, b) => a + b, 0) / (Object.keys(uploadProgress).length || 1))}, 100`}
+                  style={{ transition: 'stroke-dasharray 0.3s ease' }}
+                />
+              </svg>
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 800, color: '#fff' }}>
+                {Math.round(Object.values(uploadProgress).reduce((a, b) => a + b, 0) / (Object.keys(uploadProgress).length || 1))}%
+              </div>
+            </div>
+            <div>
+              <p style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: '#fff' }}>Processing Media...</p>
+              <p style={{ margin: 0, fontSize: '10px', color: 'var(--text-muted)' }}>{Object.keys(uploadProgress).length} file(s) in progress</p>
+            </div>
+          </div>
+          <div style={{ maxHeight: '120px', overflowY: 'auto', paddingRight: '4px' }}>
+            {Object.entries(uploadProgress).map(([id, progress]) => (
+              <div key={id} style={{ marginBottom: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>
+                  <span>FILE {id.toUpperCase()}</span>
+                  <span>{progress}%</span>
+                </div>
+                <div style={{ height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' }}>
+                  <div style={{ width: `${progress}%`, height: '100%', background: 'var(--accent-primary)', transition: 'width 0.3s ease' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Clear All Confirmation Modal */}
+      {showClearConfirm && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.85)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+          padding: '20px',
+          animation: 'fadeIn 0.3s ease'
+        }}>
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95))',
+            border: '1px solid rgba(244, 63, 94, 0.3)',
+            borderRadius: '24px',
+            padding: '40px 32px',
+            maxWidth: '420px',
+            width: '100%',
+            textAlign: 'center',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 30px rgba(244, 63, 94, 0.15)',
+            animation: 'scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards'
+          }}>
+            <div style={{
+              width: '80px',
+              height: '80px',
+              background: 'rgba(244, 63, 94, 0.1)',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 24px',
+              color: '#f43f5e',
+              border: '2px solid rgba(244, 63, 94, 0.2)'
+            }}>
+              <Trash2 size={40} />
+            </div>
+
+            <h3 style={{ fontSize: '24px', fontWeight: 800, color: '#fff', marginBottom: '12px', letterSpacing: '-0.02em' }}>
+              Clear Everything?
+            </h3>
+
+            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '15px', lineHeight: '1.6', marginBottom: '32px' }}>
+              This will permanently delete all data you've entered in every section. This action cannot be undone. Are you sure?
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <button
+                onClick={() => setShowClearConfirm(false)}
+                style={{
+                  padding: '14px',
+                  borderRadius: '16px',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  background: 'rgba(255,255,255,0.05)',
+                  color: '#fff',
+                  fontWeight: 600,
+                  fontSize: '15px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+              >
+                No, Keep it
+              </button>
+
+              <button
+                onClick={confirmClear}
+                style={{
+                  padding: '14px',
+                  borderRadius: '16px',
+                  background: 'linear-gradient(135deg, #f43f5e, #e11d48)',
+                  color: '#fff',
+                  fontWeight: 700,
+                  fontSize: '15px',
+                  cursor: 'pointer',
+                  border: 'none',
+                  boxShadow: '0 8px 20px rgba(244, 63, 94, 0.3)',
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 12px 25px rgba(244, 63, 94, 0.4)'; }}
+                onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(244, 63, 94, 0.3)'; }}
+              >
+                Yes, Clear All
               </button>
             </div>
           </div>

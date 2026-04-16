@@ -13,7 +13,9 @@ const getApiUrl = () => {
 
 export const CONFIG = {
   API_URL: getApiUrl(),
-  ASSET_URL: import.meta.env.VITE_ASSET_URL || (typeof window !== 'undefined' && window.location.hostname.endsWith('ticketliv.com') ? 'https://api.ticketliv.com/uploads' : 'http://localhost:5000/uploads'),
+  ASSET_URL: (import.meta.env.MODE === 'production' || import.meta.env.PROD || getApiUrl().includes('ticketliv.com')) 
+    ? 'https://api.ticketliv.com/uploads' 
+    : 'http://localhost:5000/uploads',
   ENV: import.meta.env.MODE || 'development',
   IS_PROD: import.meta.env.PROD,
   APP_NAME: 'TicketLiv Admin',

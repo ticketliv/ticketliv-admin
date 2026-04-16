@@ -335,7 +335,8 @@ const mapEvent = (e: any): AppEvent => ({
   video_url: e.video_url || '',
   layout_image: e.layout_image || '',
   mainMedia: e.mainMedia || e.main_media || [],
-  layoutMedia: e.layoutMedia || e.layout_media || []
+  layoutMedia: e.layoutMedia || e.layout_media || [],
+  gallery: e.gallery || []
 });
 
 const mapTransaction = (t: any): Transaction => ({

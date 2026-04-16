@@ -131,26 +131,53 @@ const AdminControl = () => {
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    const createdUser: AdminUser = {
-      id: `usr_${Date.now()}`,
-      name: newUser.name,
-      email: newUser.email,
-      password: newUser.password,
-      role: newUser.role,
-      permissions: newUser.permissions,
-      status: 'Active',
-    };
+    
+    // Validate inputs
+    if (!newUser.name || !newUser.email || !newUser.password) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
 
+    const toastId = toast.loading('Creating user...');
+    
     try {
-      await addAdminUser(createdUser);
-      setLogs([{
-        id: `log_${Date.now()}`, user_name: 'Current User', action: 'CREATE_USER', entity_type: 'User', target_id: createdUser.email, created_at: new Date().toISOString()
-      }, ...logs]);
+      // Backend expects: name, email, password, role
+      // permissions are assigned by backend based on role by default if not sent
+      const adminData = {
+        name: newUser.name,
+        email: newUser.email,
+        password: newUser.password,
+        role: newUser.role,
+        permissions: newUser.permissions // Also sending explicit permissions
+      };
+
+      await addAdminUser(adminData as AdminUser);
+      
+      toast.success(`${newUser.name} created successfully!`, { id: toastId });
       setIsAddUserModalOpen(false);
-      setNewUser({ name: '', email: '', password: '', role: 'Admin', permissions: [...DEFAULT_ROLE_PERMISSIONS['Admin']] });
-      toast.success(`${newUser.name} added successfully! (Password: ${newUser.password})`);
-    } catch (error) {
-      toast.error('Failed to create user. Ensure email is unique.');
+      
+      // Reset form
+      setNewUser({ 
+        name: '', 
+        email: '', 
+        password: '', 
+        role: 'Admin', 
+        permissions: [...DEFAULT_ROLE_PERMISSIONS['Admin']] 
+      });
+      
+      // Add local audit log
+      setLogs([{
+        id: `log_${Date.now()}`, 
+        user_name: currentAdminUser?.name || 'Admin', 
+        action: 'CREATE_USER', 
+        entity_type: 'User', 
+        target_id: newUser.email, 
+        created_at: new Date().toISOString()
+      }, ...logs]);
+
+    } catch (error: any) {
+      console.error('Create User Error:', error);
+      toast.error(error.response?.data?.message || 'Failed to create user', { id: toastId });
     }
   };
 
