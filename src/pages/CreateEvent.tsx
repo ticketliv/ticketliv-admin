@@ -860,79 +860,153 @@ const CreateEvent = () => {
             </div>
           </div>
 
+          {/* 02 Photos & Videos Section */}
           <div style={cardStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '16px', marginBottom: '8px' }}>
               <div>
                 <h3 style={sectionHeaderStyle}>
                   <span style={{ fontSize: '12px', color: 'var(--accent-primary)', opacity: 0.8, letterSpacing: '2px' }}>02</span>
                   <Video size={20} color="#ec4899" /> Photos & Videos
                 </h3>
-                <p style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Make your event stand out with a beautiful poster, a teaser video, and a layout map.</p>
+                <p style={{ color: 'var(--text-muted)', fontSize: '11px' }}>Elevate your event's appeal with high-quality posters, teaser videos, and clear venue maps.</p>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ background: 'rgba(236, 72, 153, 0.1)', padding: '4px 10px', borderRadius: '10px', color: '#ec4899', fontSize: '10px', fontWeight: 700 }}>PREMIUM ASSETS</div>
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '32px' }}>
-              {/* Main Media Section */}
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <label style={labelStyle}>Main Media Showcase (Poster/Teasers)</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
+              {/* Primary Showcase Area */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                  <div>
+                    <label style={labelStyle}>Primary Media (Posters & Teasers)</label>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '10px', margin: 0 }}>These will be the first things users see on the event page.</p>
+                  </div>
                   <div style={{ display: 'flex', gap: '8px' }}>
-                    <button type="button" onClick={() => document.getElementById('main-image-upload')?.click()} style={{ background: 'rgba(236,72,153,0.1)', color: '#ec4899', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: 600 }}>+ Image</button>
-                    <button type="button" onClick={() => document.getElementById('main-video-upload')?.click()} style={{ background: 'rgba(236,72,153,0.1)', color: '#ec4899', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: 600 }}>+ Video</button>
+                    <button type="button" onClick={() => document.getElementById('main-image-upload')?.click()} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(236,72,153,0.1)', color: '#ec4899', padding: '6px 14px', borderRadius: '10px', fontSize: '11px', fontWeight: 700, border: '1px solid rgba(236,72,153,0.2)' }}>
+                      <Camera size={14} /> + Image
+                    </button>
+                    <button type="button" onClick={() => document.getElementById('main-video-upload')?.click()} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(236,72,153,0.1)', color: '#ec4899', padding: '6px 14px', borderRadius: '10px', fontSize: '11px', fontWeight: 700, border: '1px solid rgba(236,72,153,0.2)' }}>
+                      <Video size={14} /> + Video
+                    </button>
                   </div>
                   <input id="main-image-upload" type="file" accept="image/jpeg,image/png,image/webp,image/jpg" style={{ display: 'none' }} onChange={(e) => handleMediaAdd('main', 'image', e)} />
                   <input id="main-video-upload" type="file" accept="video/mp4,video/webm,video/ogg,video/quicktime" style={{ display: 'none' }} onChange={(e) => handleMediaAdd('main', 'video', e)} />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '16px', background: 'rgba(255,255,255,0.01)', padding: '20px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', minHeight: '160px' }}>
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', 
+                  gap: '12px', 
+                  background: 'rgba(255,255,255,0.01)', 
+                  padding: '16px', 
+                  borderRadius: '20px', 
+                  border: '1px solid rgba(255,255,255,0.05)', 
+                  minHeight: '180px',
+                  alignContent: 'start',
+                  alignItems: 'start'
+                }}>
                   {mainMedia.map((item, idx) => (
-                    <div key={idx} style={{ position: 'relative', borderRadius: '14px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', aspectRatio: '1' }}>
+                    <div key={idx} className="media-preview-card" style={{ 
+                      position: 'relative', 
+                      borderRadius: '16px', 
+                      overflow: 'hidden', 
+                      border: '1px solid rgba(255,255,255,0.1)', 
+                      width: '100%',
+                      background: 'rgb(10, 10, 15)',
+                      transition: 'all 0.3s ease',
+                      boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
+                    }}>
                       {item.type === 'video' ? (
-                        <video src={getMediaUrl(item.url)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted />
+                        <video src={getMediaUrl(item.url)} style={{ width: '100%', height: 'auto', display: 'block', maxHeight: '400px' }} controls muted />
                       ) : (
-                        <img src={getMediaUrl(item.url)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <img src={getMediaUrl(item.url)} style={{ width: '100%', height: 'auto', display: 'block', maxHeight: '400px' }} />
                       )}
-                      <button type="button" onClick={() => removeMediaItem('main', idx)} style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.6)', borderRadius: '50%', color: 'white', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>×</button>
+                      <div style={{ 
+                        position: 'absolute', 
+                        top: '10px', 
+                        right: '10px',
+                        display: 'flex',
+                        gap: '6px'
+                      }}>
+                        <button type="button" onClick={() => removeMediaItem('main', idx)} style={{ background: 'rgba(244,63,94,0.85)', border: 'none', color: '#fff', padding: '6px', borderRadius: '8px', cursor: 'pointer', display: 'flex', backdropFilter: 'blur(4px)', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                      <div style={{ 
+                        position: 'absolute', 
+                        bottom: 0, 
+                        left: 0, 
+                        right: 0, 
+                        padding: '8px 12px', 
+                        background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)',
+                      }}>
+                        <span style={{ fontSize: '9px', fontWeight: 800, color: '#fff', textTransform: 'uppercase', letterSpacing: '1px' }}>{item.type}</span>
+                      </div>
                     </div>
                   ))}
                   {mainMedia.length === 0 && (
-                    <div style={{ gridColumn: '1/-1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>
-                      <Camera size={32} style={{ marginBottom: '8px' }} />
-                      <p style={{ fontSize: '11px' }}>No media added yet</p>
+                    <div style={{ gridColumn: '1/-1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', opacity: 0.3, gap: '8px' }}>
+                      <div style={{ background: 'rgba(255,255,255,0.05)', padding: '16px', borderRadius: '20px' }}>
+                        <Camera size={32} />
+                      </div>
+                      <p style={{ fontSize: '11px', fontWeight: 500 }}>Upload cover art or teaser clips</p>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Layout Media Section */}
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <label style={labelStyle}>Venue Layout & Entry Maps</label>
-                  <button type="button" onClick={() => document.getElementById('layout-media-upload')?.click()} style={{ background: 'rgba(59,130,246,0.1)', color: '#3b82f6', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: 600 }}>+ Add Map</button>
-                  <input id="layout-media-upload" type="file" accept="image/jpeg,image/png,image/webp,image/jpg,video/mp4,video/webm" style={{ display: 'none' }} onChange={(e) => handleMediaAdd('layout', 'image', e)} />
+              {/* Map & Layout Area */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                  <div>
+                    <label style={labelStyle}>Venue Navigation & Maps</label>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '10px', margin: 0 }}>Help your attendees find the venue and their way inside.</p>
+                  </div>
+                  <button type="button" onClick={() => document.getElementById('layout-media-upload')?.click()} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(59,130,246,0.1)', color: '#3b82f6', padding: '6px 14px', borderRadius: '10px', fontSize: '11px', fontWeight: 700, border: '1px solid rgba(59,130,246,0.2)' }}>
+                    <MapPin size={14} /> + Add Map
+                  </button>
+                  <input id="layout-media-upload" type="file" accept="image/jpeg,image/png,image/webp,image/jpg" style={{ display: 'none' }} onChange={(e) => handleMediaAdd('layout', 'image', e)} />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '16px', background: 'rgba(255,255,255,0.01)', padding: '20px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', minHeight: '160px' }}>
-                  {layoutMedia.map((item, idx) => (
-                    <div key={idx} style={{ position: 'relative', borderRadius: '14px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', aspectRatio: '1' }}>
-                      {item.type === 'video' ? (
-                        <video src={getMediaUrl(item.url)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted />
-                      ) : (
-                        <img src={getMediaUrl(item.url)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      )}
-                      <button type="button" onClick={() => removeMediaItem('layout', idx)} style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.6)', borderRadius: '50%', color: 'white', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>×</button>
+                <div style={{ background: 'rgba(255,255,255,0.01)', padding: '16px', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.05)', flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div className="form-group">
+                    <label style={{ ...labelStyle, fontSize: '10px', marginBottom: '8px' }}>Google Maps Link</label>
+                    <div style={{ position: 'relative' }}>
+                      <Globe size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#3b82f6', opacity: 0.6 }} />
+                      <input 
+                        type="text" 
+                        value={mapUrl} 
+                        onChange={(e) => setMapUrl(e.target.value)} 
+                        placeholder="Paste Google Maps Sharing Link..." 
+                        style={{ ...inputStyle, paddingLeft: '40px', background: 'rgba(255,255,255,0.03)', fontSize: '12px' }} 
+                      />
                     </div>
-                  ))}
-                  {layoutMedia.length === 0 && (
-                    <div style={{ gridColumn: '1/-1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>
-                      <MapPin size={32} style={{ marginBottom: '8px' }} />
-                      <p style={{ fontSize: '11px' }}>No layout maps added</p>
-                    </div>
-                  )}
+                  </div>
+
+                  <div style={{ minHeight: '120px', borderRadius: '16px', overflow: 'hidden', border: '1px dashed rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', background: 'rgba(0,0,0,0.2)' }}>
+                    {layoutMedia.length > 0 ? (
+                      <div style={{ width: '100%', textAlign: 'center' }}>
+                        <img src={getMediaUrl(layoutMedia[0].url)} style={{ width: '100%', height: 'auto', maxHeight: '300px', display: 'block' }} />
+                        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s', backdropFilter: 'blur(2px)' }} onMouseOver={(e) => e.currentTarget.style.opacity = '1'} onMouseOut={(e) => e.currentTarget.style.opacity = '0'}>
+                          <button type="button" onClick={() => removeMediaItem('layout', 0)} style={{ background: '#f43f5e', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '12px', cursor: 'pointer', fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Trash2 size={16} /> Remove Map
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ textAlign: 'center', opacity: 0.3 }}>
+                        <MapPin size={24} style={{ marginBottom: '8px' }} />
+                        <p style={{ fontSize: '11px', fontWeight: 500 }}>Upload Venue Layout Image</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
+
 
           {/* 03 Event Category */}
           <div style={cardStyle}>
@@ -1262,14 +1336,15 @@ const CreateEvent = () => {
 
 
 
+          {/* 09 Event Memories Section */}
           <div style={cardStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '16px', marginBottom: '8px' }}>
               <div>
                 <h3 style={sectionHeaderStyle}>
                   <span style={{ fontSize: '12px', color: 'var(--accent-primary)', opacity: 0.8, letterSpacing: '2px' }}>09</span>
                   <Camera size={20} color="#f97316" /> Event Memories
                 </h3>
-                <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>Share photos from past events or professional shots to show users the mood of your event.</p>
+                <p style={{ color: 'var(--text-muted)', fontSize: '11px' }}>Share a gallery of photos and videos from past editions or behind-the-scenes moments.</p>
               </div>
               <button
                 type="button"
@@ -1290,26 +1365,70 @@ const CreateEvent = () => {
               </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '16px' }}>
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', 
+              gap: '16px',
+              marginTop: '12px',
+              alignItems: 'start'
+            }}>
               {gallery.map((img: string, idx: number) => (
-                <div key={idx} style={{ aspectRatio: '1', borderRadius: '16px', overflow: 'hidden', position: 'relative', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <div key={idx} style={{ 
+                  borderRadius: '16px', 
+                  overflow: 'hidden', 
+                  position: 'relative', 
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                  background: 'rgba(0,0,0,0.2)'
+                }}>
                   {img.toLowerCase().endsWith('.mp4') || img.toLowerCase().endsWith('.webm') || galleryMetadata.find(m => m.id === img)?.file?.type.startsWith('video') ? (
-                    <video src={getMediaUrl(img)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted />
+                    <video src={getMediaUrl(img)} style={{ width: '100%', height: 'auto', display: 'block', maxHeight: '400px' }} controls muted />
                   ) : (
-                    <img src={getMediaUrl(img)} alt="Gallery" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={getMediaUrl(img)} alt="Gallery" style={{ width: '100%', height: 'auto', display: 'block', maxHeight: '400px' }} />
                   )}
-                  <button onClick={() => removeGalleryItem(idx)} style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(0,0,0,0.6)', borderRadius: '50%', color: 'white', width: '24px', height: '24px', cursor: 'pointer', border: 'none' }}>×</button>
+                  <button onClick={() => removeGalleryItem(idx)} style={{ 
+                    position: 'absolute', 
+                    top: '10px', 
+                    right: '10px', 
+                    background: 'rgba(0,0,0,0.6)', 
+                    backdropFilter: 'blur(8px)',
+                    borderRadius: '50%', 
+                    color: 'white', 
+                    width: '28px', 
+                    height: '28px', 
+                    cursor: 'pointer', 
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 4px 10px rgba(0,0,0,0.3)'
+                  }}>
+                    <Trash2 size={12} />
+                  </button>
                 </div>
               ))}
-              <label style={{ aspectRatio: '1', borderRadius: '16px', border: '2px dashed rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'rgba(255,255,255,0.02)' }}>
+              <label style={{ 
+                aspectRatio: '1', 
+                borderRadius: '20px', 
+                border: '2px dashed rgba(255,255,255,0.1)', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                cursor: 'pointer', 
+                background: 'rgba(255,255,255,0.02)',
+                transition: 'all 0.3s ease'
+              }} onMouseOver={(e) => { e.currentTarget.style.borderColor = 'rgba(249, 115, 22, 0.4)'; e.currentTarget.style.background = 'rgba(249, 115, 22, 0.05)'; }}>
                 <input type="file" multiple accept="image/jpeg,image/png,image/webp,image/jpg,video/mp4,video/webm" style={{ display: 'none' }} onChange={handleGalleryUpload} />
                 <div style={{ textAlign: 'center' }}>
-                  <Plus size={24} color="var(--text-muted)" />
-                  <p style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>Add Media</p>
+                  <div style={{ background: 'rgba(255,255,255,0.05)', padding: '12px', borderRadius: '16px', marginBottom: '8px', display: 'inline-flex' }}>
+                    <Plus size={24} color="var(--text-muted)" />
+                  </div>
+                  <p style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Add Media</p>
                 </div>
               </label>
             </div>
           </div>
+
 
           {/* 07 Prohibited Items Section */}
           <div style={cardStyle}>

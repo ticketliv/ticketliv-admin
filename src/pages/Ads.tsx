@@ -6,6 +6,7 @@ import { getMediaUrl } from '../utils/imageUtils';
 import './Ads.css';
 
 interface AdData {
+  title: string;
   type: 'image' | 'video';
   fileUrl: string | null;
   link: string;
@@ -13,6 +14,7 @@ interface AdData {
 
 const Ads = () => {
   const [adData, setAdData] = useState<AdData>({
+    title: '',
     type: 'image',
     fileUrl: null,
     link: ''
@@ -78,6 +80,10 @@ const Ads = () => {
 
   const handleSave = async () => {
     if (!fileObject && !adData.fileUrl) return;
+    if (!adData.title.trim()) {
+      toast.error('Please enter a Campaign Name first');
+      return;
+    }
     setIsSaving(true);
 
     try {
@@ -101,7 +107,7 @@ const Ads = () => {
 
       // 2. Publish ad record to database
       await api.post('/ads', {
-        title: `Mobile App ${adData.type === 'video' ? 'Video' : 'Banner'} Ad`,
+        title: adData.title,
         type: adData.type === 'video' ? 'video' : 'banner',
         media_url: adData.type === 'image' ? uploadedUrl : null,
         video_url: adData.type === 'video' ? uploadedUrl : null,
@@ -112,7 +118,7 @@ const Ads = () => {
 
       setSaveSuccess(true);
       fetchAds();
-      setAdData({ type: 'image', fileUrl: null, link: '' });
+      setAdData({ title: '', type: 'image', fileUrl: null, link: '' });
       setFileObject(null);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: any) {
@@ -167,7 +173,21 @@ const Ads = () => {
           <h3 className="section-title">Ad Configuration</h3>
 
           <div className="form-group">
-            <label>1. Select Media Type</label>
+            <label>1. Campaign Name</label>
+            <p className="field-desc">How would you like to identify this ad in your records?</p>
+            <div className="input-with-icon">
+              <ImageIcon size={18} className="input-icon" />
+              <input
+                type="text"
+                placeholder="e.g. Summer Music Fest Promo"
+                value={adData.title}
+                onChange={(e) => setAdData({ ...adData, title: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>2. Select Media Type</label>
             <div className="type-selector">
               <button
                 className={`type-btn ${adData.type === 'image' ? 'active' : ''}`}
@@ -195,7 +215,7 @@ const Ads = () => {
           </div>
 
           <div className="form-group">
-            <label>2. Upload {adData.type === 'image' ? 'Image' : 'Video'}</label>
+            <label>3. Upload {adData.type === 'image' ? 'Image' : 'Video'}</label>
             <div
               className={`upload-zone ${isHovering ? 'hover' : ''} ${adData.fileUrl ? 'has-file' : ''}`}
               onDragOver={handleDragOver}
@@ -228,7 +248,7 @@ const Ads = () => {
           </div>
 
           <div className="form-group">
-            <label>3. Ad Description Page Link (Action URL)</label>
+            <label>4. Ad Description Page Link (Action URL)</label>
             <p className="field-desc">Where should users be redirected when they tap the ad?</p>
             <div className="input-with-icon">
               <LinkIcon size={18} className="input-icon" />
@@ -312,33 +332,59 @@ const Ads = () => {
               adsList.map(ad => (
                 <tr key={ad.id}>
                   <td>
-                    <div className="ad-info">
-                      {ad.type === 'video' ? (
-                        <video 
-                          src={getMediaUrl(ad.video_url || ad.media_url)} 
-                          className="ad-thumb" 
-                          autoPlay 
-                          loop 
-                          muted 
-                          playsInline 
-                        />
-                      ) : (
-                        <img 
-                          src={getMediaUrl(ad.media_url || ad.video_url)} 
-                          className="ad-thumb" 
-                          alt="Thumbnail" 
-                        />
-                      )}
-                      <div>
-                        <div className="ad-title">{ad.title}</div>
-                        <div className="ad-target">{ad.target_url}</div>
+                    <div className="ad-info" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                      <div className="ad-thumb-container" style={{ 
+                        width: '140px', 
+                        minWidth: '140px', 
+                        borderRadius: '12px', 
+                        overflow: 'hidden', 
+                        background: 'rgba(0,0,0,0.3)', 
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        boxShadow: '0 8px 16px rgba(0,0,0,0.2)',
+                        position: 'relative',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        {ad.type === 'video' ? (
+                          <>
+                            <video 
+                              src={getMediaUrl(ad.video_url || ad.media_url)} 
+                              style={{ width: '100%', height: 'auto', maxHeight: '120px', display: 'block' }}
+                              onError={(e) => {
+                                (e.currentTarget as HTMLVideoElement).src = 'https://placehold.co/400x225/181824/white?text=Video+Campaign';
+                              }}
+                              muted 
+                              playsInline 
+                            />
+                            <div style={{ position: 'absolute', bottom: '6px', right: '6px', background: 'var(--accent-primary)', padding: '2px 6px', borderRadius: '4px', fontSize: '8px', fontWeight: 900, color: '#fff', letterSpacing: '1px', boxShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>VIDEO</div>
+                          </>
+                        ) : (
+                          <img 
+                            src={getMediaUrl(ad.media_url || ad.video_url)} 
+                            style={{ width: '100%', height: 'auto', maxHeight: '120px', display: 'block' }}
+                            alt={ad.title}
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = 'https://placehold.co/400x225/181824/white?text=Banner+Ad';
+                            }}
+                          />
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div className="ad-title" style={{ fontSize: '15px', fontWeight: 700, color: '#fff' }}>{ad.title}</div>
+                        <div className="ad-target" style={{ fontSize: '12px', color: 'var(--text-muted)', opacity: 0.7, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <LinkIcon size={12} /> {ad.target_url}
+                        </div>
                       </div>
                     </div>
                   </td>
                   <td>
-                    <span className={`live-badge`} style={{ background: ad.status === 'Active' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255,255,255,0.1)', color: ad.status === 'Active' ? '#10b981' : '#fff' }}>
-                      {ad.status}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: ad.status === 'Active' ? '#10b981' : '#f43f5e', boxShadow: ad.status === 'Active' ? '0 0 10px #10b981' : '0 0 10px #f43f5e' }}></div>
+                      <span style={{ fontSize: '12px', fontWeight: 700, color: ad.status === 'Active' ? '#10b981' : '#fff', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                        {ad.status}
+                      </span>
+                    </div>
                   </td>
                   <td>
                     <div className="ad-stats">

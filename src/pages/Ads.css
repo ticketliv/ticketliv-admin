@@ -409,11 +409,12 @@
 }
 
 .ad-thumb {
-  width: 60px;
-  height: 40px;
+  width: 100%;
+  height: auto;
   border-radius: 6px;
-  object-fit: cover;
   background: rgba(0,0,0,0.5);
+  display: block;
+  max-height: 180px;
 }
 
 .ad-info {

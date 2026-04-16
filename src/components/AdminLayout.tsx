@@ -31,9 +31,9 @@ import { useApp, type PermissionRoute } from '../context/AppContext';
 const NAV_PAGES = [
   { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
   { label: 'Events', path: '/events', icon: Calendar },
-  { label: 'Attendees', path: '/attendees', icon: ClipboardList },
   { label: 'Create Event', path: '/create-event', icon: PlusSquare },
   { label: 'Categories', path: '/categories', icon: Users },
+  { label: 'Attendees', path: '/attendees', icon: ClipboardList },
   { label: 'Ads Management', path: '/ads', icon: Megaphone },
   { label: 'Marketing', path: '/marketing', icon: Zap },
   { label: 'Analytics', path: '/analytics', icon: PieChart },
